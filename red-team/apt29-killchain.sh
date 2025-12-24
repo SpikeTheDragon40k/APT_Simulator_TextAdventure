@@ -7,7 +7,7 @@
 # MITRE ATT&CK Group: G0016
 # ============================================================================
 
-set -euo pipefail
+#set -euo pipefail
 trap cleanup INT TERM
 
 # ============================================================================
@@ -35,8 +35,9 @@ C2_IP="104.208.$(( RANDOM % 255 )).$(( RANDOM % 255 ))"
 # ============================================================================
 check_dependencies() {
     if ! command -v gum &> /dev/null; then
-        echo "❌ ERROR: gum required"
+        echo "❌ ERROR: gum is required"
         echo "Install: brew install gum"
+        echo "Or: go install github.com/charmbracelet/gum@latest"
         exit 1
     fi
 }
@@ -94,12 +95,12 @@ mission_briefing() {
     
     echo
     
-    gum format -- "# Mission Parameters"
-    gum format -- "**Threat Actor**: APT29 (Cozy Bear, Nobelium, The Dukes)"
-    gum format -- "**Attribution**: SVR - Russia Foreign Intelligence Service"
-    gum format -- "**MITRE Group**: G0016"
-    gum format -- "**Primary Objectives**: Long-term espionage, cloud compromise, supply chain"
-    gum format -- "**Notable Campaigns**: SolarWinds (2020), COVID vaccine research, DNC (2015)"
+    gum style --foreground 45 "# Mission Parameters"
+    gum style --foreground 45 "**Threat Actor**: APT29 (Cozy Bear, Nobelium, The Dukes)"
+    gum style --foreground 45 "**Attribution**: SVR - Russia Foreign Intelligence Service"
+    gum style --foreground 45 "**MITRE Group**: G0016"
+    gum style --foreground 45 "**Primary Objectives**: Long-term espionage, cloud compromise, supply chain"
+    gum style --foreground 45 "**Notable Campaigns**: SolarWinds (2020), COVID vaccine research, DNC (2015)"
     
     echo
     
@@ -117,7 +118,7 @@ mission_briefing() {
 phase_reconnaissance() {
     phase_banner 1 "RECONNAISSANCE - SUPPLY CHAIN MAPPING (TA0043)"
     
-    gum format -- "## Target Identification"
+    gum style --foreground 45 "## Target Identification"
     TARGET_ORG=$(gum choose --header "Select primary target sector:" \
         "Government Agencies" \
         "Cloud Service Providers" \
@@ -133,7 +134,7 @@ phase_reconnaissance() {
     gum spin --spinner dot --title "Mapping trusted supply chain relationships..." -- sleep 3
     
     # Supply chain analysis
-    gum format -- "### Supply Chain Analysis"
+    gum style --foreground 45 "### Supply Chain Analysis"
     SUPPLY_CHAIN_TARGET=$(gum choose --header "Identify trusted supplier for pivot:" \
         "SolarWinds Orion Platform" \
         "Microsoft Cloud Services" \
@@ -152,7 +153,7 @@ phase_reconnaissance() {
     
     # Cloud reconnaissance
     echo
-    gum format -- "### Cloud Infrastructure Enumeration"
+    gum style --foreground 45 "### Cloud Infrastructure Enumeration"
     if gum confirm "Enumerate cloud services (Azure/O365)?"; then
         track_mitre "Reconnaissance" "T1592.004 - Client Configurations"
         gum spin --spinner dot --title "Enumerating Azure AD tenants..." -- sleep 2
@@ -171,7 +172,7 @@ phase_reconnaissance() {
 phase_resource_development() {
     phase_banner 2 "RESOURCE DEVELOPMENT - NOBELIUM INFRASTRUCTURE (TA0042)"
     
-    gum format -- "## Command & Control Infrastructure"
+    gum style --foreground 45 "## Command & Control Infrastructure"
     
     # Domain generation
     track_mitre "Resource Development" "T1583.001 - Domains"
@@ -186,7 +187,7 @@ phase_resource_development() {
     
     # Cloud infrastructure
     echo
-    gum format -- "## Cloud Infrastructure"
+    gum style --foreground 45 "## Cloud Infrastructure"
     CLOUD_PROVIDER=$(gum choose \
         "Azure (blend with legitimate traffic)" \
         "AWS (distributed C2)" \
@@ -200,7 +201,7 @@ phase_resource_development() {
     
     # Malware development
     echo
-    gum format -- "## Malware Development"
+    gum style --foreground 45 "## Malware Development"
     MALWARE_FAMILY=$(gum choose \
         "SUNBURST (backdoored DLL)" \
         "TEARDROP (memory-only dropper)" \
@@ -226,11 +227,11 @@ phase_resource_development() {
 phase_initial_access() {
     phase_banner 3 "INITIAL ACCESS - SUPPLY CHAIN COMPROMISE (TA0001)"
     
-    gum format -- "## Supply Chain Insertion"
+    gum style --foreground 45 "## Supply Chain Insertion"
     track_mitre "Initial Access" "T1195.002 - Compromise Software Supply Chain"
     
     # Compromise supplier
-    gum format -- "### Compromising $SUPPLY_CHAIN_TARGET"
+    gum style --foreground 45 "### Compromising $SUPPLY_CHAIN_TARGET"
     
     SUPPLIER_METHOD=$(gum choose \
         "Compromise build environment" \
@@ -249,7 +250,7 @@ phase_initial_access() {
     
     # Backdoor implantation
     echo
-    gum format -- "### Backdooring Software Updates"
+    gum style --foreground 45 "### Backdooring Software Updates"
     
     if gum confirm "Inject $MALWARE_FAMILY into software update?"; then
         track_mitre "Initial Access" "T1195.001 - Compromise Software Dependencies"
@@ -287,7 +288,7 @@ phase_initial_access() {
 phase_execution() {
     phase_banner 4 "EXECUTION - SELECTIVE ACTIVATION (TA0002)"
     
-    gum format -- "## Target Filtering & Activation"
+    gum style --foreground 45 "## Target Filtering & Activation"
     track_mitre "Execution" "T1059.001 - PowerShell"
     
     # Dormancy period
@@ -296,7 +297,7 @@ phase_execution() {
     
     # Target selection
     echo
-    gum format -- "### High-Value Target Activation"
+    gum style --foreground 45 "### High-Value Target Activation"
     
     PRIMARY_TARGET=$(gum choose --header "Select high-value target to activate:" \
         "US Treasury Department" \
@@ -341,12 +342,12 @@ phase_execution() {
 phase_persistence() {
     phase_banner 5 "PERSISTENCE - LONG-TERM STRATEGIC ACCESS (TA0003)"
     
-    gum format -- "## Establishing Persistence Mechanisms"
+    gum style --foreground 45 "## Establishing Persistence Mechanisms"
     
     PERSIST_COUNT=0
     
     # WMI Event Subscription
-    gum format -- "### WMI Event Subscription"
+    gum style --foreground 45 "### WMI Event Subscription"
     if gum confirm "Install WMI persistence (hard to detect)?"; then
         track_mitre "Persistence" "T1546.003 - WMI Event Subscription"
         gum spin --spinner pulse --title "Register-WmiEvent filtering..." -- sleep 2
@@ -356,7 +357,7 @@ phase_persistence() {
     
     # Golden SAML
     echo
-    gum format -- "### Golden SAML Token Forgery"
+    gum style --foreground 45 "### Golden SAML Token Forgery"
     if gum confirm "Steal ADFS signing certificate (Golden SAML)?"; then
         track_mitre "Persistence" "T1606.002 - SAML Tokens"
         gum spin --spinner pulse --title "Extracting ADFS token-signing certificate..." -- sleep 3
@@ -371,7 +372,7 @@ phase_persistence() {
     
     # Azure backdoor
     echo
-    gum format -- "### Azure AD Application Backdoor"
+    gum style --foreground 45 "### Azure AD Application Backdoor"
     if gum confirm "Create rogue Azure AD application?"; then
         track_mitre "Persistence" "T1098.001 - Additional Cloud Credentials"
         gum spin --spinner pulse --title "Registering Azure AD app with Graph API permissions..." -- sleep 2
@@ -384,7 +385,7 @@ phase_persistence() {
     
     # Scheduled task
     echo
-    gum format -- "### Scheduled Task (Backup)"
+    gum style --foreground 45 "### Scheduled Task (Backup)"
     if gum confirm "Create legitimate-looking scheduled task?"; then
         track_mitre "Persistence" "T1053.005 - Scheduled Task"
         TASK_NAME="MicrosoftEdgeUpdateTaskMachine$(printf '%02d' $((RANDOM % 99)))"
@@ -406,7 +407,7 @@ phase_persistence() {
 phase_privilege_escalation() {
     phase_banner 6 "PRIVILEGE ESCALATION (TA0004)"
     
-    gum format -- "## Escalating Privileges"
+    gum style --foreground 45 "## Escalating Privileges"
     
     CURRENT_PRIV=$(gum choose --header "Current privilege level:" \
         "Standard User" \
@@ -443,7 +444,7 @@ phase_privilege_escalation() {
 phase_defense_evasion() {
     phase_banner 7 "DEFENSE EVASION - STEALTH OPERATIONS (TA0005)"
     
-    gum format -- "## Evading Security Controls"
+    gum style --foreground 45 "## Evading Security Controls"
     
     # EDR detection
     gum spin --spinner dot --title "Detecting security products..." -- sleep 2
@@ -516,10 +517,10 @@ phase_defense_evasion() {
 phase_credential_access() {
     phase_banner 8 "CREDENTIAL ACCESS - EXTENSIVE HARVESTING (TA0006)"
     
-    gum format -- "## Credential Harvesting Operations"
+    gum style --foreground 45 "## Credential Harvesting Operations"
     
     # LSASS dumping
-    gum format -- "### LSASS Memory Dump"
+    gum style --foreground 45 "### LSASS Memory Dump"
     if gum confirm "Dump LSASS process memory?"; then
         track_mitre "Credential Access" "T1003.001 - LSASS Memory"
         
@@ -543,7 +544,7 @@ phase_credential_access() {
     
     # Azure AD credential theft
     echo
-    gum format -- "### Azure AD Token Theft"
+    gum style --foreground 45 "### Azure AD Token Theft"
     if gum confirm "Steal Azure AD access tokens?"; then
         track_mitre "Credential Access" "T1528 - Steal Application Access Token"
         gum spin --spinner pulse --title "Extracting tokens from browser cache..." -- sleep 2
@@ -559,7 +560,7 @@ phase_credential_access() {
     
     # Golden Ticket
     echo
-    gum format -- "### Kerberos Golden Ticket"
+    gum style --foreground 45 "### Kerberos Golden Ticket"
     if gum confirm "Create Kerberos Golden Ticket?"; then
         track_mitre "Credential Access" "T1558.001 - Golden Ticket"
         gum spin --spinner pulse --title "Dumping krbtgt hash via DCSync..." -- sleep 3
@@ -582,10 +583,10 @@ phase_credential_access() {
 phase_discovery() {
     phase_banner 9 "DISCOVERY - ENVIRONMENT ENUMERATION (TA0007)"
     
-    gum format -- "## Cloud & On-Premise Discovery"
+    gum style --foreground 45 "## Cloud & On-Premise Discovery"
     
     # Azure AD enumeration
-    gum format -- "### Azure AD Enumeration"
+    gum style --foreground 45 "### Azure AD Enumeration"
     track_mitre "Discovery" "T1087.004 - Cloud Account"
     
     gum spin --spinner dot --title "Get-AzureADUser -All..." -- sleep 2
@@ -599,7 +600,7 @@ phase_discovery() {
     
     # Cloud resources
     echo
-    gum format -- "### Cloud Resource Discovery"
+    gum style --foreground 45 "### Cloud Resource Discovery"
     track_mitre "Discovery" "T1580 - Cloud Infrastructure Discovery"
     
     if gum confirm "Enumerate Azure resources?"; then
@@ -612,7 +613,7 @@ phase_discovery() {
     
     # On-prem discovery
     echo
-    gum format -- "### On-Premise Network Discovery"
+    gum style --foreground 45 "### On-Premise Network Discovery"
     track_mitre "Discovery" "T1018 - Remote System Discovery"
     
     DISCOVERED_HOSTS=$((50 + RANDOM % 200))
@@ -621,7 +622,7 @@ phase_discovery() {
     
     # High-value targets
     echo
-    gum format -- "### High-Value Asset Identification"
+    gum style --foreground 45 "### High-Value Asset Identification"
     
     HVT_DC=$(gum input --placeholder "Domain Controller" --value "DC01.${DOMAIN}.local")
     HVT_EXCHANGE=$(gum input --placeholder "Exchange Server" --value "EXCH01.${DOMAIN}.local")
@@ -642,7 +643,7 @@ phase_discovery() {
 phase_lateral_movement() {
     phase_banner 10 "LATERAL MOVEMENT - CLOUD & ON-PREM PIVOTING (TA0008)"
     
-    gum format -- "## Multi-Environment Lateral Movement"
+    gum style --foreground 45 "## Multi-Environment Lateral Movement"
     
     # Target selection
     TARGET_HOST=$(gum choose --header "Select lateral movement target:" \
@@ -705,10 +706,10 @@ phase_lateral_movement() {
 phase_collection() {
     phase_banner 11 "COLLECTION - CLOUD & EMAIL ESPIONAGE (TA0009)"
     
-    gum format -- "## Data Collection Operations"
+    gum style --foreground 45 "## Data Collection Operations"
     
     # Email collection (primary APT29 goal)
-    gum format -- "### O365/Exchange Email Harvesting"
+    gum style --foreground 45 "### O365/Exchange Email Harvesting"
     if gum confirm "Collect emails from cloud mailboxes?"; then
         track_mitre "Collection" "T1114.002 - Remote Email Collection"
         
@@ -731,7 +732,7 @@ phase_collection() {
     
     # Cloud file collection
     echo
-    gum format -- "### Cloud File Collection (OneDrive/SharePoint)"
+    gum style --foreground 45 "### Cloud File Collection (OneDrive/SharePoint)"
     if gum confirm "Access cloud file storage?"; then
         track_mitre "Collection" "T1213.003 - Code Repositories"
         
@@ -747,7 +748,7 @@ phase_collection() {
     
     # Source code theft
     echo
-    gum format -- "### Source Code & IP Theft"
+    gum style --foreground 45 "### Source Code & IP Theft"
     if gum confirm "Access Azure DevOps / GitHub Enterprise?"; then
         track_mitre "Collection" "T1213.003 - Code Repositories"
         gum spin --spinner pulse --title "Cloning repositories..." -- sleep 3
@@ -774,7 +775,7 @@ phase_collection() {
 phase_command_control() {
     phase_banner 12 "COMMAND & CONTROL - COVERT CHANNELS (TA0011)"
     
-    gum format -- "## Advanced C2 Infrastructure"
+    gum style --foreground 45 "## Advanced C2 Infrastructure"
     
     # C2 protocol
     C2_PROTOCOL=$(gum choose --header "Primary C2 protocol:" \
@@ -790,7 +791,7 @@ phase_command_control() {
     gum style --foreground 46 "✅ Beacon interval: 600 seconds (10 min)"
     
     echo
-    gum format -- "### Encrypted Communications"
+    gum style --foreground 45 "### Encrypted Communications"
     track_mitre "Command and Control" "T1573.001 - Symmetric Cryptography"
     
     gum spin --spinner pulse --title "Establishing AES-256 encrypted channel..." -- sleep 2
@@ -816,7 +817,7 @@ phase_command_control() {
 phase_exfiltration() {
     phase_banner 13 "EXFILTRATION - COVERT DATA THEFT (TA0010)"
     
-    gum format -- "## Data Exfiltration Operations"
+    gum style --foreground 45 "## Data Exfiltration Operations"
     
     if [ ${#STOLEN_DATA[@]} -eq 0 ]; then
         gum style --foreground 196 "⚠️  No data collected for exfiltration"
@@ -825,14 +826,14 @@ phase_exfiltration() {
     fi
     
     # Display collected data
-    gum format -- "### Staged Data"
+    gum style --foreground 45 "### Staged Data"
     for item in "${STOLEN_DATA[@]}"; do
         IFS=':' read -r type count size <<< "$item"
         echo "  - $type: $count items ($size)"
     done
     
     echo
-    gum format -- "### Exfiltration Method"
+    gum style --foreground 45 "### Exfiltration Method"
     
     EXFIL_METHOD=$(gum choose \
         "C2 channel (HTTPS Cobalt Strike)" \
@@ -872,7 +873,7 @@ phase_exfiltration() {
     
     # Throttling
     echo
-    gum format -- "### Exfiltration Rate Limiting"
+    gum style --foreground 45 "### Exfiltration Rate Limiting"
     
     THROTTLE=$(gum choose \
         "Slow (5KB/s - maximum stealth)" \
@@ -918,10 +919,10 @@ phase_exfiltration() {
 phase_impact() {
     phase_banner 14 "IMPACT & CLEANUP - STRATEGIC PERSISTENCE (TA0040)"
     
-    gum format -- "## Post-Exploitation Actions"
+    gum style --foreground 45 "## Post-Exploitation Actions"
     
     # APT29 typically doesn't do destructive actions
-    gum format -- "### Mission Profile"
+    gum style --foreground 45 "### Mission Profile"
     gum style --foreground 11 "ℹ️  APT29 (Cozy Bear) typically avoids destructive actions"
     gum style --foreground 11 "ℹ️  Focus: Long-term espionage, maintain strategic access"
     
@@ -941,7 +942,7 @@ phase_impact() {
     
     # Cleanup
     echo
-    gum format -- "### Operational Security Cleanup"
+    gum style --foreground 45 "### Operational Security Cleanup"
     
     CLEANUP_LEVEL=$(gum choose \
         "Minimal - Maintain maximum access" \
@@ -986,7 +987,7 @@ generate_report() {
         "APT29 (Cozy Bear) Operation - SVR Intelligence Success"
     
     echo
-    gum format -- "## Mission Statistics"
+    gum style --foreground 45 "## Mission Statistics"
     
     gum table --border rounded --widths 40,40 <<EOF
 Metric,Value
@@ -1001,14 +1002,14 @@ MITRE Techniques,${#MITRE_TECHNIQUES[@]}
 EOF
     
     echo
-    gum format -- "## MITRE ATT&CK Coverage (APT29/G0016)"
+    gum style --foreground 45 "## MITRE ATT&CK Coverage (APT29/G0016)"
     
     for tactic in "${!MITRE_TECHNIQUES[@]}"; do
         echo "  ✅ $tactic: ${MITRE_TECHNIQUES[$tactic]}"
     done
     
     echo
-    gum format -- "## Compromised Assets"
+    gum style --foreground 45 "## Compromised Assets"
     
     for host in "${COMPROMISED_HOSTS[@]}"; do
         IFS='|' read -r hostname ip os <<< "$host"
@@ -1016,7 +1017,7 @@ EOF
     done
     
     echo
-    gum format -- "## Strategic Objectives"
+    gum style --foreground 45 "## Strategic Objectives"
     
     gum style --foreground 46 "✅ Supply chain compromise successful"
     gum style --foreground 46 "✅ Long-term strategic access established"
@@ -1024,7 +1025,7 @@ EOF
     gum style --foreground 46 "✅ Cloud infrastructure compromised"
     
     echo
-    gum format -- "## Mission Assessment"
+    gum style --foreground 45 "## Mission Assessment"
     
     if [ $STEALTH_SCORE -gt 75 ]; then
         gum style --foreground 46 "🏆 EXCELLENT: Cozy Bear operational security maintained"

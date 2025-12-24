@@ -1,10 +1,9 @@
 #!/bin/bash
 # ============================================================================
-# APT41 (WINNTI / DOUBLE DRAGON) - RED TEAM KILLCHAIN SIMULATOR
+# BLUE TEAM: APT41 (WINNTI / DOUBLE DRAGON) DEFENSE SIMULATOR
 # ============================================================================
-# Simulates Chinese dual-purpose APT: State-sponsored espionage + Financial crime
-# MSS (Ministry of State Security) - People's Republic of China
-# MITRE ATT&CK Group: G0096
+# Defending against Chinese dual-purpose APT: Rootkits, supply chain, gaming
+# Focus: Rootkit detection, code signing validation, supply chain security
 # ============================================================================
 
 set -euo pipefail
@@ -14,23 +13,24 @@ trap cleanup INT TERM
 # CONFIGURATION & GLOBALS
 # ============================================================================
 VERSION="1.0"
-LOG_FILE="/tmp/apt41-mission-$(date +%Y%m%d-%H%M%S).log"
+LOG_FILE="/tmp/blueteam-apt41-$(date +%Y%m%d-%H%M%S).log"
+INCIDENT_FILE="/tmp/apt41-incidents-$(date +%Y%m%d-%H%M%S).json"
 MISSION_START=$(date +%s)
 
-# Mission state tracking
-declare -a COMPROMISED_HOSTS=()
-declare -a HARVESTED_CREDS=()
-declare -a STOLEN_DATA=()
-declare -A MITRE_TECHNIQUES=()
-STEALTH_SCORE=100
-DETECTION_EVENTS=0
-FINANCIAL_GAIN=0
-INTELLECTUAL_PROPERTY_SIZE=0
+# Defense state tracking
+declare -a DEPLOYED_CONTROLS=()
+declare -a DETECTED_THREATS=()
+declare -a BLOCKED_ATTACKS=()
+declare -a INCIDENT_TIMELINE=()
+declare -A DETECTION_RULES=()
+declare -A MITIGATIONS=()
 
-# APT41 characteristics (dual operational model)
-C2_DOMAIN="update-$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 8 | head -n 1).com"
-C2_IP="103.$(( RANDOM % 255 )).$(( RANDOM % 255 )).$(( RANDOM % 255 ))"
-OPERATIONAL_MODE=""
+SECURITY_SCORE=50
+THREAT_LEVEL="ELEVATED"
+INCIDENTS_DETECTED=0
+INCIDENTS_CONTAINED=0
+ROOTKIT_RISK="HIGH"
+SUPPLY_CHAIN_RISK="HIGH"
 
 # ============================================================================
 # UTILITY FUNCTIONS
@@ -44,30 +44,76 @@ check_dependencies() {
 }
 
 log_action() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] $1" >> "$LOG_FILE"
+    INCIDENT_TIMELINE+=("$timestamp|$1")
 }
 
 cleanup() {
     echo
-    gum style --foreground 11 "🚨 Operation terminated"
+    gum style --foreground 11 "🚨 Defense operations interrupted"
     generate_report
     exit 130
 }
 
-update_stealth() {
-    local penalty=$1
-    ((STEALTH_SCORE -= penalty)) || true
-    ((DETECTION_EVENTS++)) || true
-    if [ $STEALTH_SCORE -lt 30 ]; then
-        gum style --foreground 196 "⚠️  WARNING: High detection probability!"
+update_security_score() {
+    local change=$1
+    ((SECURITY_SCORE += change)) || true
+    if [ $SECURITY_SCORE -gt 100 ]; then
+        SECURITY_SCORE=100
+    elif [ $SECURITY_SCORE -lt 0 ]; then
+        SECURITY_SCORE=0
+    fi
+    
+    # Update threat level
+    if [ $SECURITY_SCORE -ge 85 ]; then
+        THREAT_LEVEL="LOW"
+        ROOTKIT_RISK="LOW"
+        SUPPLY_CHAIN_RISK="LOW"
+    elif [ $SECURITY_SCORE -ge 70 ]; then
+        THREAT_LEVEL="GUARDED"
+        ROOTKIT_RISK="MODERATE"
+        SUPPLY_CHAIN_RISK="MODERATE"
+    elif [ $SECURITY_SCORE -ge 50 ]; then
+        THREAT_LEVEL="ELEVATED"
+        ROOTKIT_RISK="ELEVATED"
+        SUPPLY_CHAIN_RISK="ELEVATED"
+    elif [ $SECURITY_SCORE -ge 30 ]; then
+        THREAT_LEVEL="HIGH"
+        ROOTKIT_RISK="HIGH"
+        SUPPLY_CHAIN_RISK="HIGH"
+    else
+        THREAT_LEVEL="SEVERE"
+        ROOTKIT_RISK="CRITICAL"
+        SUPPLY_CHAIN_RISK="CRITICAL"
     fi
 }
 
-track_mitre() {
-    local tactic=$1
-    local technique=$2
-    MITRE_TECHNIQUES["$tactic"]="$technique"
-    log_action "MITRE: [$tactic] $technique"
+track_detection() {
+    local technique=$1
+    local rule=$2
+    DETECTION_RULES["$technique"]="$rule"
+    log_action "DETECTION: [$technique] $rule"
+}
+
+track_mitigation() {
+    local attack=$1
+    local control=$2
+    MITIGATIONS["$attack"]="$control"
+    log_action "MITIGATION: [$attack] $control"
+}
+
+show_threat_level() {
+    local color
+    case $THREAT_LEVEL in
+        "LOW") color=46 ;;
+        "GUARDED") color=10 ;;
+        "ELEVATED") color=11 ;;
+        "HIGH") color=208 ;;
+        "SEVERE") color=196 ;;
+    esac
+    
+    gum style --foreground $color "🛡️  Threat: $THREAT_LEVEL | Rootkit: $ROOTKIT_RISK | Supply Chain: $SUPPLY_CHAIN_RISK | Score: $SECURITY_SCORE/100"
 }
 
 phase_banner() {
@@ -75,9 +121,11 @@ phase_banner() {
     local phase_name=$2
     clear
     gum style \
-        --foreground 208 --border-foreground 208 --border double \
+        --foreground 27 --border-foreground 27 --border double \
         --width 90 --align center --padding "1 2" \
         "PHASE $phase_num: $phase_name"
+    echo
+    show_threat_level
     echo
 }
 
@@ -87,1137 +135,946 @@ phase_banner() {
 mission_briefing() {
     clear
     gum style \
-        --foreground 208 --background 0 --border-foreground 208 --border double \
+        --foreground 27 --background 0 --border-foreground 27 --border double \
         --width 90 --align center --padding "3 4" --bold \
-        "🇨🇳 APT41 DOUBLE DRAGON" \
-        "MSS Ministry of State Security - People's Republic of China" \
+        "🛡️  BLUE TEAM OPERATIONS" \
+        "Defending Against APT41 (Winnti / Double Dragon)" \
         "" \
-        "Dual-Purpose Cyber Operations Simulator v${VERSION}"
+        "Rootkit & Supply Chain Defense v${VERSION}"
     
     echo
     
     gum format -- "# Mission Parameters"
-    gum format -- "**Threat Actor**: APT41 (Winnti, Double Dragon, Wicked Panda, Barium)"
+    gum format -- "**Adversary**: APT41 (Winnti, Double Dragon, Wicked Panda, Barium)"
     gum format -- "**Attribution**: MSS Contractor - Chengdu 404, Axiom"
     gum format -- "**MITRE Group**: G0096"
-    gum format -- "**Unique Trait**: Dual operations - State espionage + Financial cybercrime"
-    gum format -- "**Notable Campaigns**: Healthcare breach (2019), Gaming industry supply chain, Telecoms"
+    gum format -- "**Threat Focus**: Winnti rootkits, supply chain attacks, dual operations (espionage + crime)"
+    gum format -- "**Your Role**: Chief Information Security Officer & Threat Hunter"
+    gum format -- "**Objective**: Detect rootkits, secure supply chain, prevent data theft"
     
     echo
     
-    OPERATIONAL_MODE=$(gum choose --header "Select operational mode:" \
-        "🕵️  STATE-SPONSORED ESPIONAGE (MSS tasking)" \
-        "💰 FINANCIAL CYBERCRIME (Personal profit)" \
-        "🎯 DUAL OPERATION (Espionage + Crime combined)")
+    ORGANIZATION=$(gum choose --header "Select your organization type:" \
+        "Technology Company (Software development)" \
+        "Gaming Industry (Virtual currency target)" \
+        "Healthcare Organization (Research IP)" \
+        "Pharmaceutical Company (Drug R&D)" \
+        "Telecommunications Provider" \
+        "Financial Institution")
     
-    log_action "=== APT41 MISSION START: $OPERATIONAL_MODE ==="
-    
-    case $OPERATIONAL_MODE in
-        *"STATE-SPONSORED"*)
-            gum style --foreground 208 "📋 Mission authorized by MSS"
-            gum style --foreground 208 "🎯 Target: Critical infrastructure, IP theft, strategic intelligence"
-            ;;
-        *"FINANCIAL"*)
-            gum style --foreground 208 "💰 Freelance operation for personal enrichment"
-            gum style --foreground 208 "🎯 Target: Gaming companies, payment systems, cryptocurrency"
-            ;;
-        *"DUAL"*)
-            gum style --foreground 208 "🔀 Hybrid operation: State intelligence + Financial gain"
-            gum style --foreground 208 "🎯 Multi-objective mission (MSS + profit)"
-            ;;
-    esac
+    log_action "=== BLUE TEAM APT41 DEFENSE START ==="
+    log_action "Organization: $ORGANIZATION"
     
     echo
-    if ! gum confirm "Proceed with APT41 operation?"; then
-        echo "Operation cancelled"
+    gum format -- "## Intelligence Brief"
+    gum style --foreground 196 "🚨 CRITICAL: APT41 (Winnti) activity targeting $ORGANIZATION sector"
+    gum style --foreground 11 "📊 Known TTPs: Winnti rootkits, code signing abuse, supply chain"
+    gum style --foreground 11 "🎯 Targets: Intellectual property, source code, gaming assets, PII"
+    gum style --foreground 11 "⚠️  Unique: Dual-purpose operations (state + financial cybercrime)"
+    
+    echo
+    if ! gum confirm "Begin defensive operations?"; then
+        echo "Mission cancelled"
         exit 0
     fi
 }
 
 # ============================================================================
-# PHASE 1: RECONNAISSANCE - Target Selection
+# PHASE 1: ROOTKIT DETECTION & DEFENSE
 # ============================================================================
-phase_reconnaissance() {
-    phase_banner 1 "RECONNAISSANCE - TARGET INTELLIGENCE (TA0043)"
+phase_rootkit_detection() {
+    phase_banner 1 "ROOTKIT DETECTION - WINNTI DEFENSE"
     
-    gum format -- "## Strategic Target Selection"
-    
-    case $OPERATIONAL_MODE in
-        *"STATE-SPONSORED"*)
-            TARGET_ORG=$(gum choose --header "Select espionage target:" \
-                "Healthcare Industry (Patient data, Research)" \
-                "Telecommunications (5G infrastructure)" \
-                "Defense Contractors" \
-                "Higher Education (Research IP)" \
-                "Biotechnology Firms")
-            ;;
-        *"FINANCIAL"*)
-            TARGET_ORG=$(gum choose --header "Select financial target:" \
-                "Online Gaming Companies (Virtual currency)" \
-                "Cryptocurrency Exchanges" \
-                "Payment Processors" \
-                "Software License Resellers" \
-                "E-commerce Platforms")
-            ;;
-        *"DUAL"*)
-            TARGET_ORG=$(gum choose --header "Select dual-purpose target:" \
-                "Pharmaceutical Company (IP + Financial)" \
-                "Technology Firm (Trade secrets + Source code)" \
-                "Financial Institution (Intelligence + Fraud)" \
-                "Gaming Platform (User data + Virtual goods)")
-            ;;
-    esac
-    
-    log_action "TARGET: $TARGET_ORG ($OPERATIONAL_MODE)"
-    track_mitre "Reconnaissance" "T1589.002 - Email Addresses"
+    gum format -- "## Kernel-Mode Rootkit Detection"
+    gum format -- "### Winnti Rootkit Characteristics"
+    gum style --foreground 11 "⚠️  APT41 uses sophisticated kernel-mode rootkits (Winnti malware family)"
+    gum style --foreground 11 "⚠️  Capabilities: Process hiding, file hiding, network concealment"
     
     echo
-    gum spin --spinner dot --title "OSINT collection on $TARGET_ORG..." -- sleep 3
-    
-    # Employee intelligence
-    gum format -- "### Employee & Social Engineering Intelligence"
-    if gum confirm "Harvest employee data (LinkedIn, social media)?"; then
-        track_mitre "Reconnaissance" "T1593.002 - Search Engines"
-        gum spin --spinner dot --title "Scraping social media profiles..." -- sleep 2
-        
-        EMPLOYEES=$((100 + RANDOM % 300))
-        HIGH_VALUE_TARGETS=$((EMPLOYEES / 15))
-        
-        gum style --foreground 46 "✅ Employee profiles: $EMPLOYEES"
-        gum style --foreground 46 "✅ High-value targets: $HIGH_VALUE_TARGETS (IT admins, DevOps, Finance)"
-        gum style --foreground 46 "✅ Email patterns: firstname.lastname@domain.com"
+    # Driver signature verification
+    if gum confirm "Enable driver signature enforcement (block unsigned drivers)?"; then
+        track_mitigation "Rootkit Installation" "Driver signature enforcement"
+        gum spin --spinner pulse --title "bcdedit /set testsigning off..." -- sleep 2
+        gum style --foreground 46 "✅ Driver signature enforcement: ENABLED"
+        gum style --foreground 46 "✅ Secure Boot: Verified active"
+        gum style --foreground 46 "✅ Unsigned drivers: BLOCKED"
+        DEPLOYED_CONTROLS+=("Windows:DriverSignatureEnforcement")
+        update_security_score 15
     fi
     
     echo
-    gum format -- "### Technical Reconnaissance"
-    track_mitre "Reconnaissance" "T1595.002 - Vulnerability Scanning"
+    gum format -- "### Kernel Integrity Monitoring"
     
-    gum spin --spinner pulse --title "Scanning external attack surface..." -- sleep 3
-    
-    EXPOSED_ASSETS=$((10 + RANDOM % 40))
-    gum style --foreground 46 "✅ Internet-facing assets: $EXPOSED_ASSETS"
-    gum style --foreground 46 "✅ Web applications: $((EXPOSED_ASSETS / 2))"
-    gum style --foreground 46 "✅ VPN gateways: $(( 1 + RANDOM % 3 ))"
-    gum style --foreground 46 "✅ Unpatched CVEs detected: $(( RANDOM % 5 + 1 ))"
-    
-    # Certificate transparency logs (APT41 technique)
-    echo
-    if gum confirm "Mine certificate transparency logs for subdomains?"; then
-        track_mitre "Reconnaissance" "T1596.003 - Digital Certificates"
-        gum spin --spinner dot --title "Querying crt.sh certificate logs..." -- sleep 2
+    if gum confirm "Deploy kernel integrity checking (GMER, PCHunter)?"; then
+        track_detection "T1014" "Rootkit detection tools"
+        gum spin --spinner pulse --title "Scanning kernel structures for anomalies..." -- sleep 4
         
-        SUBDOMAINS=$((50 + RANDOM % 100))
-        gum style --foreground 46 "✅ Subdomains discovered: $SUBDOMAINS"
-        gum style --foreground 46 "✅ Hidden services: vpn.internal, dev.staging, admin.corp"
+        SUSPICIOUS_DRIVERS=$((RANDOM % 3))
+        
+        if [ $SUSPICIOUS_DRIVERS -gt 0 ]; then
+            ((INCIDENTS_DETECTED += SUSPICIOUS_DRIVERS))
+            gum style --foreground 196 --bold "🚨 SUSPICIOUS KERNEL DRIVERS DETECTED!"
+            
+            for i in $(seq 1 $SUSPICIOUS_DRIVERS); do
+                DRIVER_NAME="WinntiBios$(printf '%02d' $((RANDOM % 99))).sys"
+                FINDING="Unsigned kernel driver: $DRIVER_NAME"
+                DETECTED_THREATS+=("KERNEL|$FINDING|Winnti Rootkit")
+                gum style --foreground 196 "  ⚠️  $DRIVER_NAME: Hidden driver (rootkit signature)"
+            done
+            
+            log_action "ROOTKIT DETECTED: $SUSPICIOUS_DRIVERS suspicious drivers"
+        else
+            gum style --foreground 46 "✅ No suspicious kernel drivers detected"
+            update_security_score 10
+        fi
+        
+        DEPLOYED_CONTROLS+=("Rootkit:KernelIntegrityCheck")
+        update_security_score 15
     fi
     
-    log_action "RECON: $TARGET_ORG scanned, $HIGH_VALUE_TARGETS HVTs identified"
+    echo
+    gum format -- "### BYOVD (Bring Your Own Vulnerable Driver) Defense"
     
-    gum confirm "Proceed to resource development?" || exit 0
+    if gum confirm "Block known vulnerable drivers exploited by APT41?"; then
+        track_mitigation "BYOVD Exploitation" "Vulnerable driver blocklist"
+        gum spin --spinner pulse --title "Deploying vulnerable driver blocklist..." -- sleep 2
+        
+        gum style --foreground 46 "✅ Vulnerable drivers blocked:"
+        gum style --foreground 46 "   • Capcom.sys (CVE-2016-5728)"
+        gum style --foreground 46 "   • RTCore64.sys"
+        gum style --foreground 46 "   • DBUtil_2_3.sys"
+        gum style --foreground 46 "   • 50+ additional vulnerable drivers"
+        
+        DEPLOYED_CONTROLS+=("Windows:VulnerableDriverBlocklist")
+        update_security_score 12
+    fi
+    
+    echo
+    gum format -- "### Memory Analysis"
+    
+    if gum confirm "Enable advanced memory scanning (Volatility-style analysis)?"; then
+        track_detection "Hidden Processes" "Memory forensics"
+        gum spin --spinner pulse --title "Analyzing process memory for anomalies..." -- sleep 3
+        
+        gum style --foreground 46 "✅ Memory analysis tools deployed"
+        gum style --foreground 46 "✅ Hidden process detection: Active"
+        gum style --foreground 46 "✅ DKOM (Direct Kernel Object Manipulation) detection"
+        
+        DEPLOYED_CONTROLS+=("Rootkit:MemoryAnalysis")
+        update_security_score 10
+    fi
+    
+    log_action "ROOTKIT DEFENSE: ${#DEPLOYED_CONTROLS[@]} controls deployed"
+    
+    gum confirm "Proceed to code signing validation?" || exit 0
 }
 
 # ============================================================================
-# PHASE 2: RESOURCE DEVELOPMENT - Malware Arsenal
+# PHASE 2: CODE SIGNING VALIDATION
 # ============================================================================
-phase_resource_development() {
-    phase_banner 2 "RESOURCE DEVELOPMENT - WINNTI MALWARE SUITE (TA0042)"
+phase_code_signing() {
+    phase_banner 2 "CODE SIGNING VALIDATION - CERTIFICATE ABUSE DEFENSE"
     
-    gum format -- "## APT41 Custom Malware Development"
+    gum format -- "## APT41 Code Signing Certificate Abuse"
+    gum style --foreground 11 "⚠️  APT41 frequently uses stolen/forged code signing certificates"
+    gum style --foreground 11 "⚠️  Malware appears legitimate to Windows Defender and users"
     
-    # Select primary malware family
-    MALWARE_FAMILY=$(gum choose --header "Select Winnti malware variant:" \
-        "Winnti (Rootkit + Backdoor)" \
-        "KEYPLUG (Modular backdoor)" \
-        "DEADEYE (Dropper)" \
-        "MESSAGETAP (Telecom SMS interception)" \
-        "HOMEUNIX (Linux backdoor)" \
-        "HIGHNOON (RAT)" \
-        "DUSTPAN (Data exfil tool)")
-    
-    track_mitre "Resource Development" "T1587.001 - Malware"
-    gum spin --spinner pulse --title "Compiling $MALWARE_FAMILY..." -- sleep 3
-    
-    gum style --foreground 46 "✅ Malware compiled: $MALWARE_FAMILY"
-    gum style --foreground 46 "✅ Code obfuscation: VMProtect + custom packer"
-    gum style --foreground 46 "✅ Anti-analysis: Multi-stage unpacking"
-    gum style --foreground 46 "✅ Rootkit component: Kernel-mode driver"
-    
-    # Code signing certificates (APT41 specialty)
     echo
-    gum format -- "## Code Signing Certificate"
+    gum format -- "### Certificate Transparency Monitoring"
     
-    if gum confirm "Acquire stolen/forged code signing certificate?"; then
-        track_mitre "Resource Development" "T1588.003 - Code Signing Certificates"
+    if gum confirm "Monitor certificate transparency logs for org certificates?"; then
+        track_detection "T1588.003" "Certificate transparency monitoring"
+        gum spin --spinner pulse --title "Querying crt.sh and CT logs..." -- sleep 3
         
-        CERT_SOURCE=$(gum choose \
-            "Stolen from software vendor" \
-            "Purchased from underground market" \
-            "Forged certificate (self-signed)")
+        gum style --foreground 46 "✅ Certificate monitoring active"
+        gum style --foreground 46 "✅ Alerts on unauthorized certificate issuance"
+        gum style --foreground 46 "✅ Daily CT log review scheduled"
         
-        gum spin --spinner pulse --title "Obtaining code signing certificate via $CERT_SOURCE..." -- sleep 2
-        
-        CERT_ISSUER="VeriSign Class 3 Code Signing 2010 CA"
-        CERT_SUBJECT="Legitimate Software Company Ltd."
-        
-        gum style --foreground 46 "✅ Certificate acquired"
-        gum style --foreground 46 "   Issuer: $CERT_ISSUER"
-        gum style --foreground 46 "   Subject: $CERT_SUBJECT"
-        gum style --foreground 46 "✅ Malware signed with valid certificate"
-        update_stealth -15  # Very stealthy
+        DEPLOYED_CONTROLS+=("PKI:CertificateTransparency")
+        update_security_score 10
     fi
     
-    # C2 Infrastructure
     echo
-    gum format -- "## Command & Control Infrastructure"
-    track_mitre "Resource Development" "T1583.001 - Domains"
+    gum format -- "### Code Signature Verification"
     
-    gum spin --spinner pulse --title "Provisioning C2 infrastructure..." -- sleep 2
-    
-    gum style --foreground 46 "✅ C2 Domain: $C2_DOMAIN (typosquatted)"
-    gum style --foreground 46 "✅ C2 IP: $C2_IP (Compromised server in Asia)"
-    gum style --foreground 46 "✅ Backup C2: DGA algorithm (domain generation)"
-    gum style --foreground 46 "✅ Protocol: HTTPS with custom SSL pinning"
-    
-    # Supply chain preparation (APT41 tactic)
-    echo
-    gum format -- "## Supply Chain Compromise Preparation"
-    
-    if gum confirm "Target software supply chain (trojanize updates)?"; then
-        track_mitre "Resource Development" "T1587.002 - Code Signing Certificates"
+    if gum confirm "Enforce strict code signature validation on all executables?"; then
+        track_mitigation "Signed Malware" "Enhanced signature validation"
+        gum spin --spinner pulse --title "Configuring AppLocker with certificate rules..." -- sleep 2
         
-        SUPPLY_CHAIN_TARGET=$(gum choose \
-            "CCleaner-style update mechanism" \
-            "Gaming platform patch system" \
-            "Open-source library dependency" \
-            "Software vendor build server")
+        gum style --foreground 46 "✅ AppLocker: Publisher rules enforced"
+        gum style --foreground 46 "✅ Only trusted CAs accepted"
+        gum style --foreground 46 "✅ Certificate revocation checking: MANDATORY"
+        gum style --foreground 46 "✅ Expired certificates: REJECTED"
         
-        gum spin --spinner pulse --title "Infiltrating $SUPPLY_CHAIN_TARGET..." -- sleep 3
-        
-        gum style --foreground 46 "✅ Supply chain target: $SUPPLY_CHAIN_TARGET"
-        gum style --foreground 46 "✅ Backdoored installer prepared"
-        gum style --foreground 46 "✅ Distribution channel compromised"
-        
-        log_action "SUPPLY CHAIN: $SUPPLY_CHAIN_TARGET prepared for trojanization"
+        DEPLOYED_CONTROLS+=("Windows:StrictCodeSigning")
+        update_security_score 15
     fi
     
-    log_action "WEAPONIZATION: $MALWARE_FAMILY ready, code-signed"
+    echo
+    gum format -- "### Stolen Certificate Detection"
     
-    gum confirm "Proceed to initial access?" || exit 0
+    if gum confirm "Scan for known stolen/revoked certificates used by APT41?"; then
+        track_detection "Stolen Certificates" "Certificate reputation database"
+        gum spin --spinner pulse --title "Checking against APT41 certificate IoCs..." -- sleep 2
+        
+        SUSPICIOUS_CERTS=$((RANDOM % 2))
+        
+        if [ $SUSPICIOUS_CERTS -gt 0 ]; then
+            ((INCIDENTS_DETECTED++))
+            gum style --foreground 196 --bold "🚨 STOLEN CERTIFICATE DETECTED IN USE!"
+            
+            CERT_SUBJECT="Legitimate Software Company Ltd."
+            CERT_SERIAL="7E $(openssl rand -hex 8)"
+            
+            DETECTED_THREATS+=("CODE_SIGNING|Certificate: $CERT_SUBJECT (Serial: $CERT_SERIAL)|Stolen cert - APT41")
+            gum style --foreground 196 "  ⚠️  Certificate: $CERT_SUBJECT"
+            gum style --foreground 196 "  ⚠️  Serial: $CERT_SERIAL"
+            gum style --foreground 196 "  ⚠️  Status: REVOKED (known APT41 stolen cert)"
+            
+            log_action "STOLEN CERT DETECTED: $CERT_SUBJECT"
+        else
+            gum style --foreground 46 "✅ No stolen certificates detected"
+            update_security_score 8
+        fi
+        
+        DEPLOYED_CONTROLS+=("PKI:StolenCertDetection")
+    fi
+    
+    echo
+    gum format -- "### Certificate Pinning"
+    
+    if gum confirm "Implement certificate pinning for critical applications?"; then
+        track_mitigation "Certificate Forgery" "Certificate pinning"
+        gum spin --spinner pulse --title "Configuring certificate pinning..." -- sleep 2
+        
+        gum style --foreground 46 "✅ Internal applications: Certificate pinning enabled"
+        gum style --foreground 46 "✅ Only org-issued certificates accepted"
+        
+        DEPLOYED_CONTROLS+=("PKI:CertificatePinning")
+        update_security_score 10
+    fi
+    
+    log_action "CODE SIGNING: Certificate validation controls deployed"
+    
+    gum confirm "Proceed to supply chain security?" || exit 0
 }
 
 # ============================================================================
-# PHASE 3: INITIAL ACCESS
+# PHASE 3: SUPPLY CHAIN SECURITY
 # ============================================================================
-phase_initial_access() {
-    phase_banner 3 "INITIAL ACCESS - MULTI-VECTOR COMPROMISE (TA0001)"
+phase_supply_chain() {
+    phase_banner 3 "SUPPLY CHAIN SECURITY - TROJANIZED SOFTWARE DEFENSE"
     
-    gum format -- "## Initial Compromise Vector Selection"
-    
-    ACCESS_METHOD=$(gum choose --header "Select delivery method:" \
-        "Spear-phishing with DEADEYE dropper" \
-        "Supply chain attack (trojanized software)" \
-        "Watering hole (compromised industry site)" \
-        "SQL injection on web application" \
-        "Citrix/VPN vulnerability exploitation" \
-        "Stolen credentials (credential stuffing)")
+    gum format -- "## Software Supply Chain Protection"
+    gum style --foreground 11 "⚠️  APT41 is known for supply chain attacks (CCleaner-style)"
+    gum style --foreground 11 "⚠️  Targets: Software vendors, build systems, update mechanisms"
     
     echo
-    case $ACCESS_METHOD in
-        *"Spear-phishing"*)
-            track_mitre "Initial Access" "T1566.001 - Spearphishing Attachment"
-            
-            PHISH_TARGET=$(gum input --placeholder "Target employee email" \
-                --value "it.admin@$(echo $TARGET_ORG | tr ' ' '-' | tr '[:upper:]' '[:lower:]').com")
-            
-            gum spin --spinner pulse --title "Crafting targeted spear-phishing campaign..." -- sleep 2
-            
-            gum style --foreground 46 "📧 Phishing email crafted:"
-            gum style --foreground 11 "   Subject: IT Security Update Required - Action Needed"
-            gum style --foreground 11 "   Attachment: SecurityPatch_2024.exe (DEADEYE dropper)"
-            gum style --foreground 11 "   Target: $PHISH_TARGET"
-            gum style --foreground 11 "   Social engineering: Appears from IT department"
-            
-            echo
-            gum spin --spinner pulse --title "Sending phishing email..." -- sleep 2
-            
-            if (( RANDOM % 100 < 70 )); then
-                gum style --foreground 46 --bold "✅ ATTACHMENT EXECUTED"
-                gum style --foreground 46 "✅ DEADEYE dropper executed"
-                gum style --foreground 46 "✅ $MALWARE_FAMILY payload deployed"
-            else
-                gum style --foreground 196 "❌ Email flagged by security awareness training"
-                update_stealth 15
-                gum confirm "Retry with different vector?" && phase_initial_access
-                return
-            fi
-            ;;
-            
-        *"Supply chain"*)
-            track_mitre "Initial Access" "T1195.002 - Compromise Software Supply Chain"
-            
-            gum spin --spinner pulse --title "Deploying trojanized software update..." -- sleep 3
-            
-            gum style --foreground 46 --bold "✅ SUPPLY CHAIN COMPROMISE SUCCESSFUL"
-            gum style --foreground 46 "✅ Trojanized update distributed"
-            gum style --foreground 46 "✅ Code signed with stolen certificate (trusted)"
-            
-            INFECTED_COUNT=$((50 + RANDOM % 200))
-            gum style --foreground 46 "✅ Installations: $INFECTED_COUNT organizations"
-            gum style --foreground 46 "✅ Target org: $TARGET_ORG (confirmed install)"
-            
-            update_stealth -10  # Very stealthy
-            ;;
-            
-        *"Watering hole"*)
-            track_mitre "Initial Access" "T1189 - Drive-by Compromise"
-            
-            WATERING_HOLE=$(gum input --placeholder "Industry website to compromise" \
-                --value "healthcare-tech-forum.com")
-            
-            gum spin --spinner pulse --title "Compromising $WATERING_HOLE..." -- sleep 3
-            gum style --foreground 46 "✅ Watering hole compromised"
-            gum style --foreground 46 "✅ Exploit kit deployed (Internet Explorer 0-day)"
-            
-            gum spin --spinner dot --title "Waiting for $TARGET_ORG visitors..." -- sleep 3
-            gum style --foreground 46 --bold "✅ TARGET INFECTED VIA DRIVE-BY"
-            ;;
-            
-        *"SQL injection"*)
-            track_mitre "Initial Access" "T1190 - Exploit Public-Facing Application"
-            
-            gum spin --spinner pulse --title "Testing SQL injection vectors..." -- sleep 2
-            gum style --foreground 46 "✅ Vulnerable endpoint: /api/users?id=1"
-            
-            gum spin --spinner pulse --title "Exploiting SQL injection..." -- sleep 3
-            
-            gum style --foreground 46 --bold "✅ SQL INJECTION SUCCESSFUL"
-            gum style --foreground 46 "✅ Database access: Customer records"
-            gum style --foreground 46 "✅ Web shell uploaded: /uploads/update.aspx"
-            ;;
-            
-        *"Citrix"* | *"VPN"*)
-            track_mitre "Initial Access" "T1133 - External Remote Services"
-            
-            CVE=$(gum choose "CVE-2019-19781 (Citrix ADC)" "Pulse Secure VPN" "Fortinet VPN")
-            
-            gum spin --spinner pulse --title "Exploiting $CVE..." -- sleep 3
-            
-            gum style --foreground 46 --bold "✅ VPN GATEWAY COMPROMISED"
-            gum style --foreground 46 "✅ Internal network access obtained"
-            gum style --foreground 46 "✅ VPN user credentials harvested"
-            ;;
-            
-        *"Stolen credentials"*)
-            track_mitre "Initial Access" "T1078 - Valid Accounts"
-            
-            gum spin --spinner pulse --title "Testing stolen credentials from breach databases..." -- sleep 2
-            
-            gum style --foreground 46 "✅ Valid credentials found:"
-            gum style --foreground 46 "   Username: jdoe@$TARGET_ORG"
-            gum style --foreground 46 "   Password: Summer2023! (password reuse)"
-            
-            gum spin --spinner pulse --title "Authenticating to VPN..." -- sleep 2
-            gum style --foreground 46 --bold "✅ VPN ACCESS GRANTED"
-            ;;
-    esac
+    gum format -- "### Software Bill of Materials (SBOM)"
     
-    VICTIM_HOST="$(echo $TARGET_ORG | tr ' ' '-' | tr '[:upper:]' '[:lower:]')-pc-$(printf '%04d' $((RANDOM % 9999)))"
-    VICTIM_IP="10.$(( RANDOM % 255 )).$(( RANDOM % 255 )).$(( RANDOM % 254 + 1 ))"
-    COMPROMISED_HOSTS+=("$VICTIM_HOST|$VICTIM_IP|Windows 10")
+    if gum confirm "Generate and maintain SBOM for all software?"; then
+        track_mitigation "Supply Chain Compromise" "SBOM generation"
+        gum spin --spinner pulse --title "Generating SBOM for installed software..." -- sleep 3
+        
+        SOFTWARE_COUNT=$((100 + RANDOM % 200))
+        DEPENDENCIES=$((SOFTWARE_COUNT * 20))
+        
+        gum style --foreground 46 "✅ SBOM generated"
+        gum style --foreground 46 "   Tracked software: $SOFTWARE_COUNT packages"
+        gum style --foreground 46 "   Dependencies: $DEPENDENCIES components"
+        gum style --foreground 46 "✅ Baseline established for change detection"
+        
+        DEPLOYED_CONTROLS+=("SupplyChain:SBOM")
+        update_security_score 12
+    fi
     
-    log_action "INITIAL ACCESS: $VICTIM_HOST via $ACCESS_METHOD"
+    echo
+    gum format -- "### Update Mechanism Integrity"
     
-    gum confirm "Proceed to execution?" || exit 0
+    if gum confirm "Verify integrity of software update mechanisms?"; then
+        track_mitigation "Trojanized Updates" "Update integrity validation"
+        gum spin --spinner pulse --title "Auditing update channels..." -- sleep 2
+        
+        gum style --foreground 46 "✅ Update verification:"
+        gum style --foreground 46 "   • HTTPS-only update channels"
+        gum style --foreground 46 "   • Cryptographic signature validation"
+        gum style --foreground 46 "   • Hash verification (SHA-256)"
+        gum style --foreground 46 "   • Vendor certificate pinning"
+        
+        DEPLOYED_CONTROLS+=("SupplyChain:UpdateIntegrity")
+        update_security_score 15
+    fi
+    
+    echo
+    gum format -- "### Build Environment Security"
+    
+    if [[ "$ORGANIZATION" == *"Technology"* ]] || [[ "$ORGANIZATION" == *"Gaming"* ]]; then
+        if gum confirm "Harden software build/compilation environment?"; then
+            track_mitigation "Build System Compromise" "Secure build pipeline"
+            gum spin --spinner pulse --title "Hardening CI/CD pipeline..." -- sleep 3
+            
+            gum style --foreground 46 "✅ Build environment hardening:"
+            gum style --foreground 46 "   • Build servers: Air-gapped from internet"
+            gum style --foreground 46 "   • Code signing: Automated in HSM"
+            gum style --foreground 46 "   • Build integrity: Reproducible builds"
+            gum style --foreground 46 "   • Access control: MFA + privileged access"
+            
+            DEPLOYED_CONTROLS+=("SupplyChain:SecureBuild")
+            update_security_score 15
+        fi
+    fi
+    
+    echo
+    gum format -- "### Third-Party Software Vetting"
+    
+    if gum confirm "Implement vendor security assessment program?"; then
+        track_mitigation "Third-Party Risk" "Vendor assessment"
+        gum spin --spinner pulse --title "Deploying vendor security program..." -- sleep 2
+        
+        gum style --foreground 46 "✅ Vendor security requirements:"
+        gum style --foreground 46 "   • Security questionnaires mandatory"
+        gum style --foreground 46 "   • Code review for critical software"
+        gum style --foreground 46 "   • Vulnerability disclosure SLAs"
+        gum style --foreground 46 "   • Incident notification requirements"
+        
+        DEPLOYED_CONTROLS+=("SupplyChain:VendorAssessment")
+        update_security_score 10
+    fi
+    
+    log_action "SUPPLY CHAIN: ${#DEPLOYED_CONTROLS[@]} controls deployed"
+    
+    gum confirm "Proceed to endpoint detection?" || exit 0
 }
 
 # ============================================================================
-# PHASE 4: EXECUTION
+# PHASE 4: ENDPOINT DETECTION & RESPONSE
 # ============================================================================
-phase_execution() {
-    phase_banner 4 "EXECUTION - MALWARE DEPLOYMENT (TA0002)"
+phase_endpoint_detection() {
+    phase_banner 4 "ENDPOINT DETECTION & RESPONSE - APT41 SIGNATURES"
     
-    gum format -- "## Payload Execution & C2 Establishment"
-    track_mitre "Execution" "T1059.001 - PowerShell"
+    gum format -- "## EDR/XDR Deployment"
     
-    gum spin --spinner pulse --title "Executing $MALWARE_FAMILY payload..." -- sleep 3
+    TOTAL_ENDPOINTS=$((300 + RANDOM % 700))
     
-    case $MALWARE_FAMILY in
-        *"Winnti"*)
-            gum style --foreground 46 --bold "🦠 WINNTI ROOTKIT DEPLOYING"
-            gum style --foreground 46 "✅ Kernel-mode driver installed"
-            gum style --foreground 46 "✅ User-mode component: DLL injection"
-            gum style --foreground 46 "✅ Rootkit active: Process/file hiding enabled"
+    EDR_SOLUTION=$(gum choose --header "Deploy/enhance EDR platform:" \
+        "CrowdStrike Falcon (Behavioral AI)" \
+        "Microsoft Defender for Endpoint" \
+        "SentinelOne (Autonomous response)" \
+        "Carbon Black (Threat hunting)")
+    
+    if [[ "$EDR_SOLUTION" != *"None"* ]]; then
+        track_mitigation "Malware Execution" "$EDR_SOLUTION"
+        gum spin --spinner pulse --title "Deploying $EDR_SOLUTION to $TOTAL_ENDPOINTS endpoints..." -- sleep 4
+        
+        gum style --foreground 46 "✅ EDR coverage: $TOTAL_ENDPOINTS/$TOTAL_ENDPOINTS (100%)"
+        gum style --foreground 46 "✅ Agent version: Latest"
+        gum style --foreground 46 "✅ Cloud-connected: Real-time threat intelligence"
+        
+        DEPLOYED_CONTROLS+=("EDR:$EDR_SOLUTION")
+        update_security_score 15
+    fi
+    
+    echo
+    gum format -- "## APT41/Winnti-Specific Detection Signatures"
+    
+    if gum confirm "Deploy APT41/Winnti IoC database and YARA rules?"; then
+        track_detection "T1587.001" "APT41 malware signatures"
+        gum spin --spinner pulse --title "Loading APT41 threat intelligence..." -- sleep 3
+        
+        gum style --foreground 46 "✅ Winnti malware family detection"
+        gum style --foreground 46 "✅ KEYPLUG backdoor signatures"
+        gum style --foreground 46 "✅ DEADEYE dropper detection"
+        gum style --foreground 46 "✅ MESSAGETAP (telecom-specific)"
+        gum style --foreground 46 "✅ HIGHNOON RAT detection"
+        gum style --foreground 46 "✅ Known APT41 C2 domains blocked"
+        
+        DEPLOYED_CONTROLS+=("EDR:APT41_Signatures")
+        update_security_score 15
+    fi
+    
+    echo
+    gum format -- "## Rootkit-Specific Detection"
+    
+    if gum confirm "Enable kernel-mode monitoring and rootkit detection?"; then
+        track_detection "T1014" "Kernel-mode monitoring"
+        gum spin --spinner pulse --title "Enabling kernel callbacks and driver monitoring..." -- sleep 2
+        
+        gum style --foreground 46 "✅ Kernel-mode telemetry: Enabled"
+        gum style --foreground 46 "✅ Driver load monitoring: Active"
+        gum style --foreground 46 "✅ SSDT hook detection: Enabled"
+        gum style --foreground 46 "✅ Hidden process detection: Active"
+        
+        DEPLOYED_CONTROLS+=("EDR:RootkitDetection")
+        update_security_score 12
+    fi
+    
+    echo
+    gum format -- "## DLL Side-Loading Detection"
+    
+    if gum confirm "Monitor for DLL side-loading (APT41 persistence technique)?"; then
+        track_detection "T1574.002" "DLL side-loading detection"
+        gum spin --spinner pulse --title "Configuring DLL load monitoring..." -- sleep 2
+        
+        gum style --foreground 46 "✅ DLL load order monitoring"
+        gum style --foreground 46 "✅ Suspicious DLL placement detection"
+        gum style --foreground 46 "✅ High-risk applications monitored:"
+        gum style --foreground 46 "   • VMware Tools"
+        gum style --foreground 46 "   • Microsoft Defender utilities"
+        gum style --foreground 46 "   • Google Update services"
+        
+        DEPLOYED_CONTROLS+=("EDR:DLL_SideLoading")
+        update_security_score 10
+    fi
+    
+    echo
+    gum format -- "## Behavioral Detection"
+    
+    if gum confirm "Enable behavioral analysis (fileless attacks, living-off-the-land)?"; then
+        track_detection "T1620" "Behavioral analytics"
+        gum spin --spinner pulse --title "Training behavioral models..." -- sleep 3
+        
+        gum style --foreground 46 "✅ PowerShell obfuscation detection"
+        gum style --foreground 46 "✅ WMI abuse detection"
+        gum style --foreground 46 "✅ LOLBin (Living-off-the-land) monitoring"
+        gum style --foreground 46 "✅ Reflective DLL injection detection"
+        
+        DEPLOYED_CONTROLS+=("EDR:BehavioralAnalysis")
+        update_security_score 12
+    fi
+    
+    log_action "ENDPOINT: $TOTAL_ENDPOINTS endpoints with APT41 signatures"
+    
+    gum confirm "Proceed to network monitoring?" || exit 0
+}
+
+# ============================================================================
+# PHASE 5: NETWORK SECURITY MONITORING
+# ============================================================================
+phase_network_monitoring() {
+    phase_banner 5 "NETWORK SECURITY MONITORING"
+    
+    gum format -- "## Network Traffic Analysis"
+    
+    if gum confirm "Deploy network IDS/IPS with APT41 signatures?"; then
+        track_detection "T1071.001" "C2 communication detection"
+        gum spin --spinner pulse --title "Deploying Suricata with APT41 rules..." -- sleep 3
+        
+        gum style --foreground 46 "✅ IDS/IPS: Suricata with ET Pro"
+        gum style --foreground 46 "✅ APT41 C2 signatures: Loaded"
+        gum style --foreground 46 "✅ DGA (Domain Generation Algorithm) detection"
+        gum style --foreground 46 "✅ HTTPS inspection: Decryption enabled"
+        
+        DEPLOYED_CONTROLS+=("Network:IDS_IPS")
+        update_security_score 12
+    fi
+    
+    echo
+    gum format -- "## DNS Monitoring"
+    
+    if gum confirm "Deploy DNS security (sinkholing, DGA detection)?"; then
+        track_detection "T1568.002" "DGA detection"
+        gum spin --spinner pulse --title "Configuring DNS security..." -- sleep 2
+        
+        gum style --foreground 46 "✅ DNS sinkhole for known APT41 domains"
+        gum style --foreground 46 "✅ DGA detection: Machine learning model"
+        gum style --foreground 46 "✅ DNS tunneling detection: Active"
+        gum style --foreground 46 "✅ Newly registered domain alerts"
+        
+        DEPLOYED_CONTROLS+=("Network:DNS_Security")
+        update_security_score 10
+    fi
+    
+    echo
+    gum format -- "## SSL/TLS Inspection"
+    
+    if gum confirm "Enable SSL/TLS decryption and inspection?"; then
+        track_detection "Encrypted C2" "SSL inspection"
+        gum spin --spinner pulse --title "Deploying SSL inspection proxy..." -- sleep 3
+        
+        gum style --foreground 46 "✅ SSL/TLS decryption: Active"
+        gum style --foreground 46 "✅ Certificate inspection for anomalies"
+        gum style --foreground 46 "✅ Custom SSL pinning detection"
+        gum style --foreground 46 "✅ JA3 fingerprinting for malware C2"
+        
+        DEPLOYED_CONTROLS+=("Network:SSL_Inspection")
+        update_security_score 15
+    fi
+    
+    echo
+    gum format -- "## Network Segmentation"
+    
+    if gum confirm "Implement micro-segmentation (Zero Trust)?"; then
+        track_mitigation "Lateral Movement" "Network segmentation"
+        gum spin --spinner pulse --title "Configuring network segmentation..." -- sleep 3
+        
+        gum style --foreground 46 "✅ Network segments created:"
+        gum style --foreground 46 "   • Development: Isolated VLAN"
+        gum style --foreground 46 "   • Production: DMZ with strict ACLs"
+        gum style --foreground 46 "   • Administrative: Jump box access only"
+        gum style --foreground 46 "   • Research: Air-gapped"
+        gum style --foreground 46 "✅ East-West traffic: Inspected by firewall"
+        
+        DEPLOYED_CONTROLS+=("Network:Segmentation")
+        update_security_score 12
+    fi
+    
+    log_action "NETWORK: IDS/IPS and segmentation deployed"
+    
+    gum confirm "Proceed to gaming/industry-specific controls?" || exit 0
+}
+
+# ============================================================================
+# PHASE 6: INDUSTRY-SPECIFIC CONTROLS
+# ============================================================================
+phase_industry_specific() {
+    phase_banner 6 "INDUSTRY-SPECIFIC SECURITY CONTROLS"
+    
+    case $ORGANIZATION in
+        *"Gaming"*)
+            deploy_gaming_security
             ;;
-        *"KEYPLUG"*)
-            gum style --foreground 46 --bold "🔌 KEYPLUG BACKDOOR ACTIVE"
-            gum style --foreground 46 "✅ Modular architecture loaded"
-            gum style --foreground 46 "✅ Plugins: Screenshot, keylogger, file manager"
-            gum style --foreground 46 "✅ C2 protocol: Custom over HTTPS"
+        *"Healthcare"* | *"Pharmaceutical"*)
+            deploy_healthcare_security
             ;;
-        *"MESSAGETAP"*)
-            gum style --foreground 46 --bold "📱 MESSAGETAP SMS INTERCEPTOR"
-            gum style --foreground 46 "✅ Telecom database hooks installed"
-            gum style --foreground 46 "✅ SMS interception: Active"
-            gum style --foreground 46 "✅ Target numbers: Imported from list"
+        *"Technology"*)
+            deploy_tech_security
+            ;;
+        *"Financial"*)
+            deploy_financial_security
             ;;
         *)
-            gum style --foreground 46 "✅ Backdoor deployed: $MALWARE_FAMILY"
-            gum style --foreground 46 "✅ C2 callback: $C2_DOMAIN"
+            gum style --foreground 11 "⏭️  No specific industry controls for $ORGANIZATION"
+            return
             ;;
     esac
     
-    echo
-    gum style --foreground 46 "✅ C2 connection established"
-    gum style --foreground 46 "✅ Beacon interval: 300 seconds (5 minutes)"
-    gum style --foreground 46 "✅ Encryption: AES-256 + RSA-2048"
+    gum confirm "Proceed to threat hunting?" || exit 0
+}
+
+deploy_gaming_security() {
+    gum format -- "## Gaming Industry Security (APT41 Primary Target)"
+    gum style --foreground 11 "⚠️  Gaming companies are high-priority targets for APT41"
+    gum style --foreground 11 "⚠️  Focus: Virtual currency theft, player account compromise"
     
-    # Fileless execution option
     echo
-    if gum confirm "Use fileless execution (PowerShell reflective loading)?"; then
-        track_mitre "Execution" "T1620 - Reflective Code Loading"
-        gum spin --spinner pulse --title "Reflective DLL injection into memory..." -- sleep 2
-        gum style --foreground 46 "✅ Fileless execution (no disk artifacts)"
-        gum style --foreground 46 "✅ Injected into: explorer.exe"
-        update_stealth -10
+    if gum confirm "Deploy virtual currency/item theft protection?"; then
+        track_mitigation "Virtual Currency Theft" "Game economy monitoring"
+        gum spin --spinner pulse --title "Deploying game economy fraud detection..." -- sleep 3
+        
+        gum style --foreground 46 "✅ Virtual currency transaction monitoring"
+        gum style --foreground 46 "✅ Anomalous item transfer detection"
+        gum style --foreground 46 "✅ Account takeover prevention"
+        gum style --foreground 46 "✅ Rate limiting on valuable transactions"
+        
+        DEPLOYED_CONTROLS+=("Gaming:VirtualCurrencyProtection")
+        update_security_score 15
     fi
     
-    log_action "EXECUTION: $MALWARE_FAMILY deployed on $VICTIM_HOST"
+    echo
+    if gum confirm "Harden game server infrastructure?"; then
+        track_mitigation "Game Server Compromise" "Server hardening"
+        gum spin --spinner pulse --title "Hardening game servers..." -- sleep 2
+        
+        gum style --foreground 46 "✅ Database encryption at rest"
+        gum style --foreground 46 "✅ Multi-factor authentication for admin access"
+        gum style --foreground 46 "✅ Game logic obfuscation"
+        gum style --foreground 46 "✅ Anti-cheat integration with security monitoring"
+        
+        DEPLOYED_CONTROLS+=("Gaming:ServerHardening")
+        update_security_score 10
+    fi
+}
+
+deploy_healthcare_security() {
+    gum format -- "## Healthcare/Pharma Security"
+    gum style --foreground 11 "⚠️  APT41 targets healthcare for research IP and patient data"
     
-    gum confirm "Proceed to persistence?" || exit 0
+    echo
+    if gum confirm "Protect research & development data?"; then
+        track_mitigation "IP Theft" "R&D data protection"
+        gum spin --spinner pulse --title "Deploying R&D data controls..." -- sleep 2
+        
+        gum style --foreground 46 "✅ Research data classification"
+        gum style --foreground 46 "✅ DLP (Data Loss Prevention) for R&D files"
+        gum style --foreground 46 "✅ Encryption: AES-256 for sensitive research"
+        gum style --foreground 46 "✅ Access control: Need-to-know basis"
+        
+        DEPLOYED_CONTROLS+=("Healthcare:R&D_Protection")
+        update_security_score 15
+    fi
+}
+
+deploy_tech_security() {
+    gum format -- "## Technology Company Security"
+    
+    echo
+    if gum confirm "Protect source code and intellectual property?"; then
+        track_mitigation "Source Code Theft" "Code repository security"
+        gum spin --spinner pulse --title "Hardening source code repositories..." -- sleep 2
+        
+        gum style --foreground 46 "✅ Git repository access control"
+        gum style --foreground 46 "✅ Code signing enforcement"
+        gum style --foreground 46 "✅ Repository integrity monitoring"
+        gum style --foreground 46 "✅ Secrets scanning (API keys, credentials)"
+        
+        DEPLOYED_CONTROLS+=("Tech:SourceCodeProtection")
+        update_security_score 12
+    fi
+}
+
+deploy_financial_security() {
+    gum format -- "## Financial Institution Security"
+    
+    echo
+    if gum confirm "Enhance payment fraud detection?"; then
+        track_mitigation "Payment Fraud" "Transaction monitoring"
+        gum spin --spinner pulse --title "Deploying fraud detection..." -- sleep 2
+        
+        gum style --foreground 46 "✅ Real-time transaction monitoring"
+        gum style --foreground 46 "✅ Anomaly detection (AI/ML)"
+        gum style --foreground 46 "✅ Multi-factor authentication on high-value transfers"
+        
+        DEPLOYED_CONTROLS+=("Finance:FraudDetection")
+        update_security_score 12
+    fi
 }
 
 # ============================================================================
-# PHASE 5: PERSISTENCE - Winnti Rootkit
+# PHASE 7: PROACTIVE THREAT HUNTING
 # ============================================================================
-phase_persistence() {
-    phase_banner 5 "PERSISTENCE - LONG-TERM ACCESS (TA0003)"
+phase_threat_hunting() {
+    phase_banner 7 "PROACTIVE THREAT HUNTING - APT41 INDICATORS"
     
-    gum format -- "## Establishing Multiple Persistence Mechanisms"
+    gum format -- "## Threat Hunt Mission"
+    gum format -- "Hypothesis: APT41 may have deployed Winnti rootkit or established persistence"
     
-    PERSIST_COUNT=0
+    echo
+    HUNT_HYPOTHESIS=$(gum choose --header "Select hunting hypothesis:" \
+        "Search for Winnti rootkit artifacts" \
+        "Hunt for DLL side-loading persistence" \
+        "Detect signed malware (stolen certificates)" \
+        "Find KEYPLUG backdoor indicators" \
+        "Identify supply chain compromise")
     
-    # Winnti rootkit driver
-    if gum confirm "Install Winnti kernel-mode rootkit driver?"; then
-        track_mitre "Persistence" "T1543.003 - Windows Service"
-        gum spin --spinner pulse --title "Loading kernel driver via exploited vulnerable driver..." -- sleep 3
+    gum spin --spinner pulse --title "Executing threat hunt: $HUNT_HYPOTHESIS..." -- sleep 4
+    
+    echo
+    gum format -- "### Hunt Results"
+    
+    # Simulate findings
+    SUSPICIOUS_FINDINGS=$((RANDOM % 6))
+    
+    if [ $SUSPICIOUS_FINDINGS -gt 0 ]; then
+        ((INCIDENTS_DETECTED += SUSPICIOUS_FINDINGS))
+        gum style --foreground 196 "🚨 SUSPICIOUS ACTIVITY DETECTED!"
         
-        gum style --foreground 46 --bold "✅ ROOTKIT DRIVER INSTALLED"
-        gum style --foreground 46 "   Driver: WinntiBios64.sys (disguised as BIOS driver)"
-        gum style --foreground 46 "   Technique: BYOVD (Bring Your Own Vulnerable Driver)"
-        gum style --foreground 46 "   Capabilities: Process hiding, file hiding, network hiding"
-        ((PERSIST_COUNT++))
-        update_stealth -15  # Very stealthy
-    fi
-    
-    echo
-    # DLL side-loading
-    if gum confirm "Deploy DLL side-loading persistence?"; then
-        track_mitre "Persistence" "T1574.002 - DLL Side-Loading"
-        
-        LEGITIMATE_APP=$(gum choose \
-            "VMware Tools (vmtoolsd.exe)" \
-            "Microsoft Defender (MpCmdRun.exe)" \
-            "Google Update (GoogleUpdate.exe)")
-        
-        gum spin --spinner pulse --title "Placing malicious DLL alongside $LEGITIMATE_APP..." -- sleep 2
-        
-        gum style --foreground 46 "✅ DLL side-loading configured"
-        gum style --foreground 46 "   Legitimate app: $LEGITIMATE_APP"
-        gum style --foreground 46 "   Malicious DLL: version.dll (loaded first)"
-        gum style --foreground 46 "✅ Executed on every reboot"
-        ((PERSIST_COUNT++))
-    fi
-    
-    echo
-    # Registry run keys (backup)
-    if gum confirm "Add registry run key (backup persistence)?"; then
-        track_mitre "Persistence" "T1547.001 - Registry Run Keys"
-        gum spin --spinner pulse --title "Modifying HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run..." -- sleep 2
-        gum style --foreground 46 "✅ Registry key: WindowsUpdateAgent"
-        gum style --foreground 46 "   Value: C:\\Windows\\System32\\update.exe"
-        ((PERSIST_COUNT++))
-    fi
-    
-    echo
-    # Scheduled task
-    if gum confirm "Create scheduled task (stealthy)?"; then
-        track_mitre "Persistence" "T1053.005 - Scheduled Task"
-        TASK_NAME="MicrosoftEdgeUpdateTask$(printf '%02d' $((RANDOM % 99)))"
-        gum spin --spinner pulse --title "schtasks /create /tn $TASK_NAME /tr update.exe..." -- sleep 2
-        gum style --foreground 46 "✅ Task: $TASK_NAME (runs every 6 hours)"
-        gum style --foreground 46 "✅ Hidden from Task Scheduler UI"
-        ((PERSIST_COUNT++))
-    fi
-    
-    echo
-    # Bootkit (advanced)
-    if gum confirm "Install UEFI/BIOS bootkit (firmware persistence)?"; then
-        track_mitre "Persistence" "T1542.001 - System Firmware"
-        gum spin --spinner pulse --title "Flashing malicious UEFI module..." -- sleep 4
-        
-        gum style --foreground 46 --bold "✅ UEFI BOOTKIT INSTALLED"
-        gum style --foreground 46 "⚠️  Survives OS reinstallation"
-        gum style --foreground 46 "⚠️  Survives disk formatting"
-        gum style --foreground 46 "⚠️  Extremely difficult to detect"
-        ((PERSIST_COUNT++))
-        update_stealth -20  # Ultimate stealth
-    fi
-    
-    echo
-    gum style --foreground 46 --bold "🔒 $PERSIST_COUNT persistence mechanisms deployed"
-    log_action "PERSISTENCE: $PERSIST_COUNT mechanisms (rootkit, DLL side-loading, etc)"
-    
-    gum confirm "Proceed to privilege escalation?" || exit 0
-}
-
-# ============================================================================
-# PHASE 6: PRIVILEGE ESCALATION
-# ============================================================================
-phase_privilege_escalation() {
-    phase_banner 6 "PRIVILEGE ESCALATION (TA0004)"
-    
-    gum format -- "## Escalating to SYSTEM/Administrator"
-    
-    CURRENT_PRIV="Standard User"
-    gum style --foreground 11 "Current: $CURRENT_PRIV"
-    
-    echo
-    ESCALATION_METHOD=$(gum choose --header "Privilege escalation technique:" \
-        "Exploit vulnerable signed driver (BYOVD)" \
-        "Token impersonation (Juicy Potato)" \
-        "Exploit CVE-2021-1732 (Win32k)" \
-        "UAC bypass (DLL hijacking)" \
-        "PrintNightmare (CVE-2021-34527)")
-    
-    track_mitre "Privilege Escalation" "T1068 - Exploitation for Privilege Escalation"
-    
-    gum spin --spinner pulse --title "Executing $ESCALATION_METHOD..." -- sleep 3
-    
-    if (( RANDOM % 100 < 90 )); then
-        gum style --foreground 46 --bold "✅ PRIVILEGE ESCALATION SUCCESSFUL"
-        gum style --foreground 46 "✅ Running as: NT AUTHORITY\\SYSTEM"
-        gum style --foreground 46 "✅ SeDebugPrivilege: Enabled"
-        log_action "PRIVILEGE ESCALATION: Success via $ESCALATION_METHOD"
-    else
-        gum style --foreground 196 "❌ Escalation failed"
-        update_stealth 10
-    fi
-    
-    gum confirm "Proceed to defense evasion?" || exit 0
-}
-
-# ============================================================================
-# PHASE 7: DEFENSE EVASION - Rootkit Techniques
-# ============================================================================
-phase_defense_evasion() {
-    phase_banner 7 "DEFENSE EVASION - WINNTI ROOTKIT STEALTH (TA0005)"
-    
-    gum format -- "## Advanced Evasion Techniques"
-    
-    # Rootkit capabilities
-    if [[ "$MALWARE_FAMILY" == *"Winnti"* ]]; then
-        gum format -- "### Winnti Rootkit Evasion"
-        
-        gum style --foreground 46 "✅ Process hiding: Winnti process invisible"
-        gum style --foreground 46 "✅ File hiding: All malware files hidden"
-        gum style --foreground 46 "✅ Registry hiding: Persistence keys invisible"
-        gum style --foreground 46 "✅ Network hiding: C2 connections hidden from netstat"
-        
-        track_mitre "Defense Evasion" "T1014 - Rootkit"
-    fi
-    
-    echo
-    # Code signing bypass
-    if gum confirm "Use stolen code signing certificate (bypass AV)?"; then
-        track_mitre "Defense Evasion" "T1553.002 - Code Signing"
-        gum spin --spinner pulse --title "Signing malware with valid certificate..." -- sleep 2
-        gum style --foreground 46 "✅ Code signed with trusted certificate"
-        gum style --foreground 46 "✅ Windows Defender: Whitelisted"
-        gum style --foreground 46 "✅ Antivirus: Trusted process"
-        update_stealth -15
-    fi
-    
-    echo
-    # Timestomping
-    if gum confirm "Timestomp files (hide implant creation time)?"; then
-        track_mitre "Defense Evasion" "T1070.006 - Timestomp"
-        gum spin --spinner pulse --title "Modifying file timestamps..." -- sleep 2
-        gum style --foreground 46 "✅ File timestamps: Backdated to 2019"
-        gum style --foreground 46 "✅ Appears as old system file"
-    fi
-    
-    echo
-    # Process injection
-    if gum confirm "Inject into legitimate process (hide malicious code)?"; then
-        track_mitre "Defense Evasion" "T1055 - Process Injection"
-        
-        TARGET_PROCESS=$(gum choose "svchost.exe" "explorer.exe" "lsass.exe")
-        gum spin --spinner pulse --title "Injecting into $TARGET_PROCESS..." -- sleep 2
-        gum style --foreground 46 "✅ Code running in $TARGET_PROCESS context"
-        gum style --foreground 46 "✅ Appears as legitimate process activity"
-    fi
-    
-    echo
-    # Log clearing
-    if gum confirm "Clear Windows Event Logs?"; then
-        track_mitre "Defense Evasion" "T1070.001 - Clear Windows Event Logs"
-        gum spin --spinner pulse --title "wevtutil cl Security..." -- sleep 2
-        gum style --foreground 46 "✅ Security logs cleared"
-        gum style --foreground 46 "✅ System logs cleared"
-        update_stealth 10  # Noisy action
-    fi
-    
-    echo
-    gum style --foreground 11 "Current stealth score: $STEALTH_SCORE/100"
-    
-    gum confirm "Proceed to credential access?" || exit 0
-}
-
-# ============================================================================
-# PHASE 8: CREDENTIAL ACCESS
-# ============================================================================
-phase_credential_access() {
-    phase_banner 8 "CREDENTIAL ACCESS - HARVESTING (TA0006)"
-    
-    gum format -- "## Comprehensive Credential Theft"
-    
-    # LSASS dumping
-    if gum confirm "Dump LSASS process memory (Mimikatz)?"; then
-        track_mitre "Credential Access" "T1003.001 - LSASS Memory"
-        
-        gum spin --spinner pulse --title "Dumping LSASS.exe with rootkit protection..." -- sleep 3
-        
-        # Generate credentials
-        DOMAIN="$(echo $TARGET_ORG | cut -d' ' -f1 | tr '[:upper:]' '[:lower:]')"
-        for i in $(seq 1 $(( 5 + RANDOM % 8 ))); do
-            CRED="$DOMAIN\\user$i:Pass$(openssl rand -hex 4)"
-            HARVESTED_CREDS+=("$CRED")
+        for i in $(seq 1 $SUSPICIOUS_FINDINGS); do
+            case $((RANDOM % 5)) in
+                0)
+                    FINDING="Suspicious kernel driver: WinntiBios64.sys (unsigned, hidden)"
+                    HOST="SRV-$(printf '%04d' $((RANDOM % 9999)))"
+                    THREAT="Winnti rootkit"
+                    ;;
+                1)
+                    FINDING="DLL side-loading: version.dll alongside VMware Tools"
+                    HOST="WKS-$(printf '%04d' $((RANDOM % 9999)))"
+                    THREAT="APT41 persistence"
+                    ;;
+                2)
+                    FINDING="Revoked code signing certificate in use"
+                    HOST="APP-SRV-$(printf '%02d' $((RANDOM % 99)))"
+                    THREAT="Signed malware (stolen cert)"
+                    ;;
+                3)
+                    FINDING="Connection to known APT41 C2: update-$(openssl rand -hex 4).com"
+                    HOST="PC-$(printf '%04d' $((RANDOM % 9999)))"
+                    THREAT="KEYPLUG backdoor"
+                    ;;
+                4)
+                    FINDING="Trojanized software: Modified hash on legitimate installer"
+                    HOST="BUILD-SRV-01"
+                    THREAT="Supply chain compromise"
+                    ;;
+            esac
+            
+            DETECTED_THREATS+=("$HOST|$FINDING|$THREAT")
+            gum style --foreground 196 "  ⚠️  $HOST: $FINDING"
+            log_action "THREAT DETECTED: $HOST - $FINDING ($THREAT)"
         done
         
-        gum style --foreground 46 "✅ Credentials extracted: ${#HARVESTED_CREDS[@]}"
-        
-        # Domain admin
-        if (( RANDOM % 100 < 55 )); then
-            ADMIN_CRED="$DOMAIN\\administrator:$(openssl rand -base64 12)"
-            HARVESTED_CREDS+=("$ADMIN_CRED")
-            gum style --foreground 46 --bold "🎯 DOMAIN ADMIN CREDENTIAL CAPTURED!"
-        fi
-    fi
-    
-    echo
-    # SAM database
-    if gum confirm "Dump SAM database (local accounts)?"; then
-        track_mitre "Credential Access" "T1003.002 - Security Account Manager"
-        gum spin --spinner pulse --title "reg save HKLM\\SAM sam.save..." -- sleep 2
-        
-        LOCAL_ACCOUNTS=$(( 5 + RANDOM % 10 ))
-        gum style --foreground 46 "✅ SAM database dumped"
-        gum style --foreground 46 "✅ Local accounts: $LOCAL_ACCOUNTS"
-        gum style --foreground 46 "✅ NTLM hashes extracted"
-    fi
-    
-    echo
-    # Browser credential theft
-    if gum confirm "Steal browser saved passwords?"; then
-        track_mitre "Credential Access" "T1555.003 - Credentials from Web Browsers"
-        gum spin --spinner pulse --title "Extracting Chrome/Firefox credentials..." -- sleep 2
-        
-        BROWSER_CREDS=$(( 10 + RANDOM % 30 ))
-        for i in $(seq 1 3); do
-            SITE="banking-site-$i.com:user$i@email.com:$(openssl rand -hex 6)"
-            HARVESTED_CREDS+=("$SITE")
-        done
-        
-        gum style --foreground 46 "✅ Browser credentials: $BROWSER_CREDS"
-        gum style --foreground 46 "✅ Includes: Banking, email, corporate portals"
-    fi
-    
-    echo
-    # Keylogging
-    if gum confirm "Deploy keylogger for ongoing credential capture?"; then
-        track_mitre "Credential Access" "T1056.001 - Keylogging"
-        gum spin --spinner pulse --title "Installing kernel-mode keylogger..." -- sleep 2
-        gum style --foreground 46 "✅ Keylogger active (rootkit-protected)"
-        gum style --foreground 46 "✅ Logs encrypted and exfiltrated hourly"
-    fi
-    
-    echo
-    gum style --foreground 46 --bold "🔑 Total credentials: ${#HARVESTED_CREDS[@]}"
-    log_action "CREDENTIAL ACCESS: ${#HARVESTED_CREDS[@]} credentials harvested"
-    
-    gum confirm "Continue to discovery?" || exit 0
-}
-
-# ============================================================================
-# PHASE 9: DISCOVERY - Network & AD Enumeration
-# ============================================================================
-phase_discovery() {
-    phase_banner 9 "DISCOVERY - ENVIRONMENT MAPPING (TA0007)"
-    
-    gum format -- "## Network & Active Directory Reconnaissance"
-    
-    # Network discovery
-    track_mitre "Discovery" "T1018 - Remote System Discovery"
-    gum spin --spinner dot --title "Scanning internal network..." -- sleep 3
-    
-    DISCOVERED_HOSTS=$((50 + RANDOM % 200))
-    gum style --foreground 46 "✅ Active hosts: $DISCOVERED_HOSTS"
-    
-    # Active Directory enumeration
-    echo
-    track_mitre "Discovery" "T1087.002 - Domain Account"
-    gum spin --spinner dot --title "Enumerating Active Directory..." -- sleep 2
-    
-    AD_USERS=$((500 + RANDOM % 1500))
-    GROUPS=$((50 + RANDOM % 150))
-    
-    gum style --foreground 46 "✅ Domain: $DOMAIN.local"
-    gum style --foreground 46 "✅ Domain users: $AD_USERS"
-    gum style --foreground 46 "✅ Security groups: $GROUPS"
-    gum style --foreground 46 "✅ Domain admins: $((5 + RANDOM % 15))"
-    
-    # High-value targets
-    echo
-    gum format -- "### Critical Systems Identification"
-    
-    case $OPERATIONAL_MODE in
-        *"STATE-SPONSORED"*)
-            HVT_1=$(gum input --placeholder "Domain Controller" --value "DC01.$DOMAIN.local")
-            HVT_2=$(gum input --placeholder "Research Database" --value "RESEARCH-DB-01")
-            HVT_3=$(gum input --placeholder "Email Server" --value "EXCH01.$DOMAIN.local")
-            ;;
-        *"FINANCIAL"*)
-            HVT_1=$(gum input --placeholder "Payment Server" --value "PAY-SRV-01")
-            HVT_2=$(gum input --placeholder "Game Server" --value "GAME-PROD-01")
-            HVT_3=$(gum input --placeholder "License Server" --value "LICENSE-01")
-            ;;
-        *"DUAL"*)
-            HVT_1=$(gum input --placeholder "Domain Controller" --value "DC01.$DOMAIN.local")
-            HVT_2=$(gum input --placeholder "Financial Database" --value "FINANCE-DB-01")
-            HVT_3=$(gum input --placeholder "Research Server" --value "R&D-SRV-01")
-            ;;
-    esac
-    
-    COMPROMISED_HOSTS+=("$HVT_1|10.0.1.10|Windows Server 2019")
-    COMPROMISED_HOSTS+=("$HVT_2|10.0.1.50|SQL Server 2019")
-    COMPROMISED_HOSTS+=("$HVT_3|10.0.1.20|Windows Server 2016")
-    
-    gum style --foreground 46 "🎯 Critical systems identified: 3"
-    
-    log_action "DISCOVERY: $DISCOVERED_HOSTS hosts, $AD_USERS users, 3 HVTs"
-    
-    gum confirm "Proceed to lateral movement?" || exit 0
-}
-
-# ============================================================================
-# PHASE 10: LATERAL MOVEMENT
-# ============================================================================
-phase_lateral_movement() {
-    phase_banner 10 "LATERAL MOVEMENT - DOMAIN COMPROMISE (TA0008)"
-    
-    gum format -- "## Network Propagation & Privilege Expansion"
-    
-    # Target selection
-    if [ ${#COMPROMISED_HOSTS[@]} -gt 1 ]; then
-        TARGET_HOST="${COMPROMISED_HOSTS[-1]%%|*}"
-    else
-        TARGET_HOST="SRV-$(printf '%04d' $((RANDOM % 9999)))"
-    fi
-    
-    echo
-    LATERAL_METHOD=$(gum choose --header "Lateral movement technique:" \
-        "Pass-the-Hash (Stolen credentials)" \
-        "WMI (Windows Management Instrumentation)" \
-        "PsExec (Remote service creation)" \
-        "RDP (Remote Desktop - stolen creds)" \
-        "SMB (Admin share access)" \
-        "DCOM (Distributed COM exploitation)")
-    
-    case $LATERAL_METHOD in
-        *"Pass-the-Hash"*)
-            track_mitre "Lateral Movement" "T1550.002 - Pass the Hash"
-            gum spin --spinner pulse --title "Authenticating with NTLM hash..." -- sleep 2
-            ;;
-        *"WMI"*)
-            track_mitre "Lateral Movement" "T1047 - Windows Management Instrumentation"
-            gum spin --spinner pulse --title "wmic /node:$TARGET_HOST process call create..." -- sleep 2
-            ;;
-        *"PsExec"*)
-            track_mitre "Lateral Movement" "T1021.002 - SMB/Windows Admin Shares"
-            gum spin --spinner pulse --title "psexec.exe \\\\$TARGET_HOST -s cmd.exe..." -- sleep 2
-            ;;
-        *"RDP"*)
-            track_mitre "Lateral Movement" "T1021.001 - Remote Desktop Protocol"
-            gum spin --spinner pulse --title "mstsc /v:$TARGET_HOST /admin..." -- sleep 2
-            ;;
-        *"SMB"*)
-            track_mitre "Lateral Movement" "T1021.002 - SMB/Windows Admin Shares"
-            gum spin --spinner pulse --title "net use \\\\$TARGET_HOST\\C$ /user:admin..." -- sleep 2
-            ;;
-        *"DCOM"*)
-            track_mitre "Lateral Movement" "T1021.003 - Distributed Component Object Model"
-            gum spin --spinner pulse --title "Exploiting DCOM via MMC20.Application..." -- sleep 2
-            ;;
-    esac
-    
-    if (( RANDOM % 100 < 85 )); then
-        gum style --foreground 46 --bold "✅ LATERAL MOVEMENT SUCCESSFUL"
-        gum style --foreground 46 "✅ Access: $TARGET_HOST"
-        log_action "LATERAL MOVEMENT: Success to $TARGET_HOST"
-        
-        # Deploy malware on new host
-        if gum confirm "Deploy $MALWARE_FAMILY on $TARGET_HOST?"; then
-            gum spin --spinner pulse --title "Installing backdoor..." -- sleep 2
-            gum style --foreground 46 "✅ $MALWARE_FAMILY active on $TARGET_HOST"
-            gum style --foreground 46 "✅ Persistence established"
+        echo
+        if gum confirm "Initiate incident response procedures?"; then
+            phase_incident_response
+            return
         fi
     else
-        gum style --foreground 196 "❌ Lateral movement failed"
-        update_stealth 10
+        gum style --foreground 46 "✅ No suspicious activity detected"
+        gum style --foreground 46 "   Environment appears clean"
+        update_security_score 5
     fi
     
-    gum confirm "Proceed to collection?" || exit 0
-}
-
-# ============================================================================
-# PHASE 11: COLLECTION - Data Theft
-# ============================================================================
-phase_collection() {
-    phase_banner 11 "COLLECTION - INTELLECTUAL PROPERTY THEFT (TA0009)"
+    log_action "THREAT HUNT: Complete - $SUSPICIOUS_FINDINGS findings"
     
-    gum format -- "## Data Collection Operations"
-    
-    case $OPERATIONAL_MODE in
-        *"STATE-SPONSORED"*)
-            collect_espionage_data
-            ;;
-        *"FINANCIAL"*)
-            collect_financial_data
-            ;;
-        *"DUAL"*)
-            collect_espionage_data
-            echo
-            collect_financial_data
-            ;;
-    esac
-}
-
-collect_espionage_data() {
-    gum format -- "### State-Sponsored Intelligence Collection"
-    
-    # Research data
-    if gum confirm "Steal research & development data?"; then
-        track_mitre "Collection" "T1005 - Data from Local System"
-        gum spin --spinner pulse --title "Collecting R&D documents..." -- sleep 3
-        
-        RND_FILES=$((1000 + RANDOM % 5000))
-        RND_SIZE=$((RND_FILES * 2))
-        INTELLECTUAL_PROPERTY_SIZE=$((INTELLECTUAL_PROPERTY_SIZE + RND_SIZE))
-        
-        STOLEN_DATA+=("R&D_Documents:$RND_FILES:${RND_SIZE}MB")
-        gum style --foreground 46 "✅ R&D files collected: $RND_FILES ($RND_SIZE MB)"
-        gum style --foreground 46 "✅ Includes: Patents, designs, source code"
-    fi
-    
-    echo
-    # Email collection
-    if gum confirm "Collect executive emails?"; then
-        track_mitre "Collection" "T1114.001 - Local Email Collection"
-        gum spin --spinner pulse --title "Exporting Exchange mailboxes..." -- sleep 3
-        
-        EMAIL_COUNT=$((5000 + RANDOM % 15000))
-        EMAIL_SIZE=$((EMAIL_COUNT / 10))
-        INTELLECTUAL_PROPERTY_SIZE=$((INTELLECTUAL_PROPERTY_SIZE + EMAIL_SIZE))
-        
-        STOLEN_DATA+=("Emails:$EMAIL_COUNT:${EMAIL_SIZE}MB")
-        gum style --foreground 46 "✅ Emails collected: $EMAIL_COUNT ($EMAIL_SIZE MB)"
-    fi
-    
-    echo
-    # Database theft
-    if gum confirm "Exfiltrate sensitive databases?"; then
-        track_mitre "Collection" "T1005 - Data from Local System"
-        gum spin --spinner pulse --title "Dumping SQL databases..." -- sleep 4
-        
-        DB_SIZE=$((500 + RANDOM % 3000))
-        INTELLECTUAL_PROPERTY_SIZE=$((INTELLECTUAL_PROPERTY_SIZE + DB_SIZE))
-        
-        STOLEN_DATA+=("Databases:5_databases:${DB_SIZE}MB")
-        gum style --foreground 46 "✅ Databases exfiltrated: 5 (${DB_SIZE} MB)"
-        gum style --foreground 46 "✅ Customer data, research data, financial records"
+    if [ $SUSPICIOUS_FINDINGS -eq 0 ]; then
+        gum confirm "Proceed to incident response readiness?" || exit 0
     fi
 }
 
-collect_financial_data() {
-    gum format -- "### Financial Cybercrime Collection"
+# ============================================================================
+# PHASE 8: INCIDENT RESPONSE (IF THREATS DETECTED)
+# ============================================================================
+phase_incident_response() {
+    phase_banner 8 "INCIDENT RESPONSE - APT41 (WINNTI) COMPROMISE"
     
-    # Payment card data
-    if gum confirm "Steal payment card data (PCI)?"; then
-        track_mitre "Collection" "T1005 - Data from Local System"
-        gum spin --spinner pulse --title "Harvesting payment card database..." -- sleep 3
-        
-        CARD_COUNT=$((10000 + RANDOM % 50000))
-        
-        gum style --foreground 46 --bold "💳 PAYMENT CARDS STOLEN: $CARD_COUNT"
-        gum style --foreground 46 "✅ Full card details (PAN, CVV, expiry)"
-        
-        FINANCIAL_GAIN=$((CARD_COUNT / 100))
-        STOLEN_DATA+=("PaymentCards:$CARD_COUNT:PII")
-    fi
+    gum format -- "## Active Incident: APT41/Winnti Activity Detected"
+    gum style --foreground 196 --bold "🚨 SECURITY INCIDENT IN PROGRESS"
     
     echo
-    # Gaming virtual currency
-    if gum confirm "Steal gaming virtual currency/items?"; then
-        track_mitre "Collection" "T1005 - Data from Local System"
-        gum spin --spinner pulse --title "Accessing game database..." -- sleep 2
-        
-        VIRTUAL_ITEMS=$((50000 + RANDOM % 200000))
-        VALUE=$((VIRTUAL_ITEMS / 1000))
-        
-        gum style --foreground 46 "✅ Virtual items stolen: $VIRTUAL_ITEMS"
-        gum style --foreground 46 "✅ Estimated value: \$$VALUE USD"
-        
-        FINANCIAL_GAIN=$((FINANCIAL_GAIN + VALUE))
-        STOLEN_DATA+=("VirtualGoods:$VIRTUAL_ITEMS:\$${VALUE}")
-    fi
-    
-    echo
-    # Cryptocurrency wallets
-    if gum confirm "Search for cryptocurrency wallets?"; then
-        track_mitre "Collection" "T1005 - Data from Local System"
-        gum spin --spinner pulse --title "Scanning for wallet files..." -- sleep 2
-        
-        WALLETS_FOUND=$(( RANDOM % 5 ))
-        if [ $WALLETS_FOUND -gt 0 ]; then
-            CRYPTO_VALUE=$(( 10 + RANDOM % 100 ))
-            gum style --foreground 46 "✅ Crypto wallets found: $WALLETS_FOUND"
-            gum style --foreground 46 "✅ Estimated value: \$$CRYPTO_VALUE thousand"
-            FINANCIAL_GAIN=$((FINANCIAL_GAIN + CRYPTO_VALUE))
-        else
-            gum style --foreground 11 "⚠️  No cryptocurrency wallets found"
-        fi
-    fi
-}
-
-# Continue in next part due to length...
-gum confirm "Proceed to command & control?" || exit 0
-}
-
-# ============================================================================
-# PHASE 12: COMMAND & CONTROL
-# ============================================================================
-phase_command_control() {
-    phase_banner 12 "COMMAND & CONTROL - COVERT CHANNELS (TA0011)"
-    
-    gum format -- "## C2 Infrastructure & Communication"
-    
-    track_mitre "Command and Control" "T1071.001 - Web Protocols"
-    
-    gum style --foreground 46 "✅ C2 Protocol: HTTPS (port 443)"
-    gum style --foreground 46 "✅ C2 Domain: $C2_DOMAIN"
-    gum style --foreground 46 "✅ Beacon interval: 300 seconds (jitter: ±60s)"
-    gum style --foreground 46 "✅ Encryption: Custom AES-256 + RSA"
-    
-    echo
-    gum format -- "### Domain Generation Algorithm (DGA)"
-    
-    if gum confirm "Activate DGA for C2 resilience?"; then
-        track_mitre "Command and Control" "T1568.002 - Domain Generation Algorithms"
-        gum spin --spinner pulse --title "Generating fallback C2 domains..." -- sleep 2
-        
-        for i in $(seq 1 3); do
-            DGA_DOMAIN="$(openssl rand -hex 8).com"
-            gum style --foreground 46 "   Fallback C2 #$i: $DGA_DOMAIN"
-        done
-        
-        gum style --foreground 46 "✅ DGA active (20 domains/day)"
-    fi
-    
-    echo
-    gum format -- "### Encrypted Communication"
-    track_mitre "Command and Control" "T1573.001 - Symmetric Cryptography"
-    
-    gum style --foreground 46 "✅ Traffic encryption: AES-256-CBC"
-    gum style --foreground 46 "✅ SSL pinning: Custom CA certificate"
-    gum style --foreground 46 "✅ Traffic obfuscation: Mimics legitimate HTTPS"
-    
-    log_action "C2: HTTPS to $C2_DOMAIN with DGA fallback"
-    
-    gum confirm "Continue to exfiltration?" || exit 0
-}
-
-# ============================================================================
-# PHASE 13: EXFILTRATION
-# ============================================================================
-phase_exfiltration() {
-    phase_banner 13 "EXFILTRATION - DATA EXTRACTION (TA0010)"
-    
-    gum format -- "## Covert Data Exfiltration"
-    
-    if [ ${#STOLEN_DATA[@]} -eq 0 ]; then
-        gum style --foreground 196 "⚠️  No data collected for exfiltration"
-        return
-    fi
-    
-    # Display collected data
-    gum format -- "### Staged Data for Exfiltration"
-    TOTAL_SIZE=0
-    for item in "${STOLEN_DATA[@]}"; do
-        IFS=':' read -r type count size <<< "$item"
-        echo "  📦 $type: $count items ($size)"
-        
-        # Calculate total size (if numeric)
-        if [[ "$size" =~ ^[0-9]+MB$ ]]; then
-            SIZE_NUM=$(echo $size | sed 's/MB//')
-            TOTAL_SIZE=$((TOTAL_SIZE + SIZE_NUM))
-        fi
+    gum format -- "### Detected Threats"
+    for threat in "${DETECTED_THREATS[@]}"; do
+        IFS='|' read -r host finding threat_type <<< "$threat"
+        gum style --foreground 196 "  🎯 $host: $finding"
+        gum style --foreground 11 "     Threat: $threat_type"
     done
     
     echo
-    gum format -- "### Exfiltration Method"
+    IR_LEAD=$(gum input --placeholder "Incident Response lead name" --value "CSIRT Lead $(whoami)")
+    INCIDENT_ID="INC-APT41-$(date +%Y%m%d)-$((1000 + RANDOM % 9000))"
     
-    EXFIL_METHOD=$(gum choose \
-        "C2 channel (HTTPS beacon)" \
-        "Cloud storage (compromised account)" \
-        "FTP to attacker server" \
-        "DNS tunneling (covert channel)" \
-        "Email (encrypted attachments)")
+    log_action "INCIDENT DECLARED: $INCIDENT_ID by $IR_LEAD"
     
-    case $EXFIL_METHOD in
-        *"C2 channel"*)
-            track_mitre "Exfiltration" "T1041 - Exfiltration Over C2 Channel"
-            ;;
-        *"Cloud storage"*)
-            track_mitre "Exfiltration" "T1567.002 - Exfiltration to Cloud Storage"
-            ;;
-        *"FTP"*)
-            track_mitre "Exfiltration" "T1048.003 - Exfiltration Over Alternative Protocol"
-            ;;
-        *"DNS"*)
-            track_mitre "Exfiltration" "T1048.002 - Exfiltration Over Alternative Protocol"
-            ;;
-        *"Email"*)
-            track_mitre "Exfiltration" "T1048.003 - Exfiltration Over Alternative Protocol"
-            ;;
-    esac
+    gum style --foreground 11 "📋 Incident ID: $INCIDENT_ID"
+    gum style --foreground 11 "👤 IR Lead: $IR_LEAD"
+    gum style --foreground 11 "🎯 Threat Actor: APT41 (Winnti / Double Dragon)"
     
-    # Compression & encryption
     echo
-    if gum confirm "Compress and encrypt exfiltration data?"; then
-        track_mitre "Exfiltration" "T1560.001 - Archive via Utility"
-        gum spin --spinner pulse --title "7z a -p$(openssl rand -hex 8) -mhe=on data.7z..." -- sleep 2
-        COMPRESSED_SIZE=$((TOTAL_SIZE / 3))
-        gum style --foreground 46 "✅ Compressed: ${TOTAL_SIZE}MB → ${COMPRESSED_SIZE}MB"
-        TOTAL_SIZE=$COMPRESSED_SIZE
-    fi
+    gum format -- "## Containment Actions"
     
-    # Throttling
-    echo
-    gum format -- "### Exfiltration Rate Limiting (Stealth)"
+    # Check for rootkit
+    ROOTKIT_DETECTED=false
+    for threat in "${DETECTED_THREATS[@]}"; do
+        if [[ "$threat" == *"rootkit"* ]] || [[ "$threat" == *"Winnti"* ]]; then
+            ROOTKIT_DETECTED=true
+            break
+        fi
+    done
     
-    THROTTLE=$(gum choose \
-        "Slow (10KB/s - maximum stealth)" \
-        "Moderate (100KB/s)" \
-        "Fast (1MB/s - higher risk)")
-    
-    case $THROTTLE in
-        *"Slow"*)
-            EXFIL_TIME=$((TOTAL_SIZE * 100))
-            ;;
-        *"Moderate"*)
-            EXFIL_TIME=$((TOTAL_SIZE * 10))
-            update_stealth 5
-            ;;
-        *"Fast"*)
-            EXFIL_TIME=$((TOTAL_SIZE))
-            update_stealth 15
-            ;;
-    esac
-    
-    # Execute exfiltration
-    echo
-    if [ $TOTAL_SIZE -gt 0 ]; then
-        gum spin --spinner meter --title "Exfiltrating ${TOTAL_SIZE}MB via $EXFIL_METHOD..." -- sleep $((EXFIL_TIME < 10 ? EXFIL_TIME : 10))
-    else
-        gum spin --spinner meter --title "Exfiltrating collected data via $EXFIL_METHOD..." -- sleep 5
-    fi
-    
-    if (( RANDOM % 100 < (STEALTH_SCORE - 5) )); then
-        gum style --foreground 46 --bold "✅ EXFILTRATION COMPLETE"
-        gum style --foreground 46 "✅ Data transferred successfully"
-        gum style --foreground 46 "✅ Destination: APT41 collection infrastructure (China)"
+    if [ "$ROOTKIT_DETECTED" = true ]; then
+        gum style --foreground 196 --bold "🦠 WINNTI ROOTKIT DETECTED - SPECIALIZED RESPONSE REQUIRED"
         
-        log_action "EXFILTRATION: Success via $EXFIL_METHOD"
-    else
-        gum style --foreground 196 "❌ EXFILTRATION DETECTED - DLP Alert"
-        update_stealth 30
-        log_action "EXFILTRATION: Detected and blocked"
+        if gum confirm "Boot into safe mode or WinPE for rootkit removal?"; then
+            gum spin --spinner pulse --title "Preparing bootable forensics environment..." -- sleep 3
+            gum style --foreground 46 "✅ Hosts scheduled for offline rootkit removal"
+            gum style --foreground 46 "✅ WinPE boot media prepared"
+            ((INCIDENTS_CONTAINED++))
+            update_security_score 15
+        fi
+        
+        echo
+        if gum confirm "Rebuild compromised systems from trusted baseline?"; then
+            gum spin --spinner pulse --title "Deploying clean OS images..." -- sleep 4
+            gum style --foreground 46 "✅ Systems rebuilt from golden image"
+            gum style --foreground 46 "✅ Firmware verified (no UEFI rootkit)"
+            ((INCIDENTS_CONTAINED++))
+            update_security_score 15
+        fi
     fi
     
-    gum confirm "Proceed to impact/cleanup?" || exit 0
+    echo
+    # Isolate compromised systems
+    if gum confirm "Isolate all affected systems from network?"; then
+        for threat in "${DETECTED_THREATS[@]}"; do
+            IFS='|' read -r host finding threat_type <<< "$threat"
+            
+            gum spin --spinner pulse --title "Isolating $host via EDR..." -- sleep 1
+            gum style --foreground 46 "✅ $host isolated (network quarantine)"
+            BLOCKED_ATTACKS+=("$host|Network isolation")
+            ((INCIDENTS_CONTAINED++))
+        done
+        update_security_score 10
+    fi
+    
+    echo
+    # Revoke stolen certificates
+    CERT_DETECTED=false
+    for threat in "${DETECTED_THREATS[@]}"; do
+        if [[ "$threat" == *"certificate"* ]]; then
+            CERT_DETECTED=true
+            break
+        fi
+    done
+    
+    if [ "$CERT_DETECTED" = true ]; then
+        if gum confirm "Revoke compromised code signing certificates?"; then
+            gum spin --spinner pulse --title "Submitting certificate revocation to CA..." -- sleep 3
+            gum style --foreground 46 "✅ Certificates revoked"
+            gum style --foreground 46 "✅ CRL (Certificate Revocation List) updated"
+            gum style --foreground 46 "✅ Internal blocklist deployed"
+            ((INCIDENTS_CONTAINED++))
+            update_security_score 15
+        fi
+    fi
+    
+    echo
+    gum format -- "## Eradication"
+    
+    if gum confirm "Remove all APT41 malware, backdoors, and rootkits?"; then
+        gum spin --spinner pulse --title "Scanning for APT41 artifacts..." -- sleep 3
+        
+        gum style --foreground 46 "✅ Winnti rootkit: Removed (offline cleaning)"
+        gum style --foreground 46 "✅ KEYPLUG backdoor: Eradicated"
+        gum style --foreground 46 "✅ DLL side-loading: Cleaned"
+        gum style --foreground 46 "✅ Persistence mechanisms: Removed"
+        gum style --foreground 46 "✅ C2 connections: Terminated"
+        
+        update_security_score 15
+    fi
+    
+    echo
+    gum format -- "## Forensic Collection"
+    
+    if gum confirm "Collect forensic artifacts for attribution and analysis?"; then
+        gum spin --spinner pulse --title "Collecting evidence..." -- sleep 3
+        gum style --foreground 46 "✅ Memory dumps: Captured (rootkit analysis)"
+        gum style --foreground 46 "✅ Disk images: Acquired"
+        gum style --foreground 46 "✅ Malware samples: Submitted to CISA/vendors"
+        gum style --foreground 46 "✅ Network PCAPs: Preserved"
+        gum style --foreground 46 "✅ Timeline analysis: Complete"
+    fi
+    
+    echo
+    gum format -- "## Recovery"
+    
+    if gum confirm "Restore services with enhanced monitoring?"; then
+        gum spin --spinner pulse --title "Restoring operations..." -- sleep 3
+        gum style --foreground 46 "✅ Systems restored to production"
+        gum style --foreground 46 "✅ Enhanced EDR telemetry: Deployed"
+        gum style --foreground 46 "✅ Kernel monitoring: Maximum sensitivity"
+        gum style --foreground 46 "✅ Threat hunt cadence: Daily for 90 days"
+    fi
+    
+    log_action "INCIDENT $INCIDENT_ID: Contained ($INCIDENTS_CONTAINED actions) and eradicated"
+    
+    gum confirm "Continue to post-incident hardening?" || exit 0
 }
 
 # ============================================================================
-# PHASE 14: IMPACT & CLEANUP
+# PHASE 9: POST-INCIDENT HARDENING
 # ============================================================================
-phase_impact() {
-    phase_banner 14 "IMPACT & CLEANUP (TA0040)"
+phase_post_incident() {
+    phase_banner 9 "POST-INCIDENT HARDENING"
     
-    gum format -- "## Post-Exploitation Actions"
+    gum format -- "## Enhanced Security Posture"
     
-    # APT41 typically maintains long-term access
-    gum style --foreground 11 "ℹ️  APT41 typically maintains long-term stealthy access"
-    gum style --foreground 11 "ℹ️  Avoid destructive actions unless specific operational need"
-    
-    echo
-    if gum confirm "Deploy additional backdoors for persistence?"; then
-        EXTRA_BACKDOOR=$(gum choose \
-            "Web shell on IIS server" \
-            "Second rootkit (backup access)" \
-            "SSH backdoor on Linux servers")
+    if gum confirm "Deploy additional preventive controls?"; then
         
-        gum spin --spinner pulse --title "Installing $EXTRA_BACKDOOR..." -- sleep 2
-        gum style --foreground 46 "✅ Backup access: $EXTRA_BACKDOOR"
-        log_action "BACKDOOR: $EXTRA_BACKDOOR for long-term access"
+        # Application whitelisting
+        if gum confirm "Implement application whitelisting (AppLocker)?"; then
+            track_mitigation "Malware Execution" "Application whitelisting"
+            gum spin --spinner pulse --title "Deploying AppLocker policies..." -- sleep 3
+            gum style --foreground 46 "✅ AppLocker: Default deny policy"
+            gum style --foreground 46 "✅ Whitelist: Only approved applications"
+            gum style --foreground 46 "✅ Publisher rules: Verified signatures only"
+            DEPLOYED_CONTROLS+=("Windows:AppLocker")
+            update_security_score 15
+        fi
+        
+        echo
+        # Deception technology
+        if gum confirm "Deploy honeypots and canary tokens?"; then
+            track_detection "Lateral Movement" "Deception technology"
+            gum spin --spinner pulse --title "Deploying deception layer..." -- sleep 2
+            gum style --foreground 46 "✅ Honeypot systems: 3 deployed"
+            gum style --foreground 46 "✅ Canary files: Distributed across shares"
+            gum style --foreground 46 "✅ Fake credentials: Planted in memory"
+            DEPLOYED_CONTROLS+=("Deception:Honeypots")
+            update_security_score 10
+        fi
+        
+        echo
+        # Threat intelligence sharing
+        if gum confirm "Share IoCs with threat intelligence community?"; then
+            gum spin --spinner pulse --title "Submitting threat intelligence..." -- sleep 2
+            gum style --foreground 46 "✅ IoCs shared with CISA"
+            gum style --foreground 46 "✅ FS-ISAC notification sent"
+            gum style --foreground 46 "✅ Vendor threat feeds updated"
+        fi
     fi
     
-    echo
-    gum format -- "## Operational Security Cleanup"
+    log_action "POST-INCIDENT: Enhanced controls deployed"
     
-    CLEANUP_LEVEL=$(gum choose \
-        "Minimal - Maintain all access (stealth priority)" \
-        "Moderate - Remove obvious artifacts" \
-        "Extensive - Cover all tracks (mission complete)")
-    
-    case $CLEANUP_LEVEL in
-        *"Minimal"*)
-            gum spin --spinner dot --title "Light cleanup..." -- sleep 1
-            gum style --foreground 11 "✅ Minimal cleanup - All backdoors remain"
-            gum style --foreground 11 "✅ Rootkit protecting all artifacts"
-            ;;
-        *"Moderate"*)
-            track_mitre "Defense Evasion" "T1070 - Indicator Removal"
-            gum spin --spinner pulse --title "Removing obvious IOCs..." -- sleep 3
-            gum style --foreground 46 "✅ Temporary files deleted"
-            gum style --foreground 46 "✅ Event logs selectively cleared"
-            gum style --foreground 46 "✅ Rootkit and primary backdoors remain"
-            ;;
-        *"Extensive"*)
-            track_mitre "Defense Evasion" "T1070 - Indicator Removal"
-            gum spin --spinner pulse --title "Full sanitization..." -- sleep 4
-            gum style --foreground 46 "✅ All logs cleared"
-            gum style --foreground 46 "✅ Temporary artifacts removed"
-            gum style --foreground 46 "✅ Secondary backdoors removed"
-            gum style --foreground 11 "⚠️  Primary rootkit remains (UEFI persistence)"
-            update_stealth -10
-            ;;
-    esac
-    
-    log_action "CLEANUP: $CLEANUP_LEVEL - Mission phase complete"
+    gum confirm "Proceed to final assessment?" || exit 0
 }
 
 # ============================================================================
-# MISSION REPORT
+# PHASE 10: RED TEAM VALIDATION
+# ============================================================================
+phase_red_team_validation() {
+    phase_banner 10 "RED TEAM VALIDATION"
+    
+    gum format -- "## Purple Team Exercise"
+    gum format -- "Simulate APT41 attack to test defenses"
+    
+    echo
+    if gum confirm "Authorize APT41-style red team engagement?"; then
+        
+        SCOPE=$(gum choose --no-limit --header "Red team scope:" \
+            "Winnti rootkit deployment simulation" \
+            "Code signing certificate abuse" \
+            "Supply chain attack scenario" \
+            "DLL side-loading persistence test")
+        
+        gum spin --spinner pulse --title "Red team executing APT41 TTPs..." -- sleep 5
+        
+        gum format -- "### Red Team Results"
+        
+        DETECTION_RATE=$((60 + (SECURITY_SCORE / 3) + RANDOM % 15))
+        if [ $DETECTION_RATE -gt 100 ]; then
+            DETECTION_RATE=100
+        fi
+        
+        DWELL_TIME=$((35 - (SECURITY_SCORE / 4)))
+        if [ $DWELL_TIME -lt 1 ]; then
+            DWELL_TIME=1
+        fi
+        
+        gum style --foreground 46 "📊 Detection Rate: ${DETECTION_RATE}%"
+        gum style --foreground 11 "⏱️  Mean Time to Detect: ${DWELL_TIME} hours"
+        gum style --foreground 11 "🦠 Rootkit Detection: $([ $DETECTION_RATE -gt 75 ] && echo "STRONG" || echo "NEEDS WORK")"
+        gum style --foreground 11 "📜 Code Signing Validation: $([ $DETECTION_RATE -gt 80 ] && echo "EFFECTIVE" || echo "GAPS EXIST")"
+        
+        if [ $DETECTION_RATE -ge 85 ]; then
+            gum style --foreground 46 "✅ EXCELLENT: Strong APT41/Winnti defense posture"
+            update_security_score 20
+        elif [ $DETECTION_RATE -ge 70 ]; then
+            gum style --foreground 11 "⚠️  GOOD: Some gaps remain"
+            update_security_score 10
+        else
+            gum style --foreground 196 "❌ CRITICAL GAPS: APT41 could succeed"
+            update_security_score -5
+        fi
+        
+        echo
+        gum format -- "### Identified Gaps"
+        gum style --foreground 11 "  - Kernel-mode monitoring needs enhancement"
+        gum style --foreground 11 "  - Certificate revocation checking incomplete"
+        gum style --foreground 46 "  + Rootkit detected within acceptable timeframe"
+        gum style --foreground 46 "  + Supply chain integrity validation effective"
+        
+        if gum confirm "Conduct purple team debrief?"; then
+            gum style --foreground 46 "✅ Purple team session complete"
+            gum style --foreground 46 "✅ Detection rules tuned based on findings"
+            update_security_score 10
+        fi
+    fi
+    
+    log_action "RED TEAM: Validation complete - ${DETECTION_RATE}% detection"
+    
+    gum confirm "Generate final report?" || exit 0
+}
+
+# ============================================================================
+# FINAL REPORT GENERATION
 # ============================================================================
 generate_report() {
     local mission_end=$(date +%s)
@@ -1226,121 +1083,152 @@ generate_report() {
     
     clear
     gum style \
-        --foreground 208 --border-foreground 208 --border double \
+        --foreground 27 --border-foreground 27 --border double \
         --width 90 --align center --padding "2 4" --bold \
-        "🎖️  MISSION COMPLETE" \
-        "APT41 (Double Dragon) Operation - MSS Success"
+        "🛡️  DEFENSE MISSION COMPLETE" \
+        "APT41 (Winnti / Double Dragon) Defense Assessment"
     
     echo
-    gum format -- "## Mission Statistics"
+    gum format -- "## Defense Posture Summary"
     
-    gum table --border rounded --widths 40,40 <<EOF
-Metric,Value
-Operational Mode,$OPERATIONAL_MODE
-Mission Duration,${duration_min} minutes
-Compromised Hosts,${#COMPROMISED_HOSTS[@]}
-Credentials Harvested,${#HARVESTED_CREDS[@]}
-IP Stolen (MB),$INTELLECTUAL_PROPERTY_SIZE
-Financial Gain,\$$FINANCIAL_GAIN thousand
-Detection Events,$DETECTION_EVENTS
-Final Stealth Score,$STEALTH_SCORE/100
-MITRE Techniques,${#MITRE_TECHNIQUES[@]}
-EOF
-    
-    echo
-    gum format -- "## MITRE ATT&CK Coverage (APT41/G0096)"
-    
-    for tactic in "${!MITRE_TECHNIQUES[@]}"; do
-        echo "  ✅ $tactic: ${MITRE_TECHNIQUES[$tactic]}"
-    done
-    
-    echo
-    gum format -- "## Compromised Assets"
-    
-    for host in "${COMPROMISED_HOSTS[@]}"; do
-        IFS='|' read -r hostname ip os <<< "$host"
-        echo "  🖥️  $hostname ($ip) - $os"
-    done
-    
-    echo
-    gum format -- "## Stolen Data Summary"
-    
-    if [ ${#STOLEN_DATA[@]} -gt 0 ]; then
-        for item in "${STOLEN_DATA[@]}"; do
-            IFS=':' read -r type count size <<< "$item"
-            echo "  📦 $type: $count ($size)"
-        done
+    # Overall assessment
+    local grade
+    if [ $SECURITY_SCORE -ge 90 ]; then
+        grade="A - Excellent"
+        gum style --foreground 46 --bold "🏆 SECURITY GRADE: $grade"
+    elif [ $SECURITY_SCORE -ge 80 ]; then
+        grade="B - Good"
+        gum style --foreground 46 "✅ SECURITY GRADE: $grade"
+    elif [ $SECURITY_SCORE -ge 70 ]; then
+        grade="C - Adequate"
+        gum style --foreground 11 "⚠️  SECURITY GRADE: $grade"
+    elif [ $SECURITY_SCORE -ge 60 ]; then
+        grade="D - Needs Improvement"
+        gum style --foreground 208 "⚠️  SECURITY GRADE: $grade"
     else
-        echo "  ℹ️  No data exfiltration performed"
+        grade="F - Critical Gaps"
+        gum style --foreground 196 "❌ SECURITY GRADE: $grade"
     fi
     
     echo
-    gum format -- "## Mission Assessment"
-    
-    case $OPERATIONAL_MODE in
-        *"STATE-SPONSORED"*)
-            if [ $INTELLECTUAL_PROPERTY_SIZE -gt 1000 ]; then
-                gum style --foreground 46 "🏆 HIGH-VALUE INTELLIGENCE: ${INTELLECTUAL_PROPERTY_SIZE}MB for MSS"
-            else
-                gum style --foreground 11 "💼 MODERATE INTELLIGENCE GAIN"
-            fi
-            ;;
-        *"FINANCIAL"*)
-            if [ $FINANCIAL_GAIN -gt 100 ]; then
-                gum style --foreground 46 "💰 PROFITABLE OPERATION: \$$FINANCIAL_GAIN thousand"
-            else
-                gum style --foreground 11 "💸 MODERATE FINANCIAL GAIN"
-            fi
-            ;;
-        *"DUAL"*)
-            gum style --foreground 46 "🎯 DUAL SUCCESS:"
-            gum style --foreground 46 "   State Intelligence: ${INTELLECTUAL_PROPERTY_SIZE}MB"
-            gum style --foreground 46 "   Financial Profit: \$$FINANCIAL_GAIN thousand"
-            ;;
-    esac
+    echo "┌────────────────────────────────────────┬──────────────────────┐"
+    echo "│ Metric                                 │ Value                │"
+    echo "├────────────────────────────────────────┼──────────────────────┤"
+    printf "│ %-38s │ %-20s │\n" "Mission Duration" "${duration_min} minutes"
+    printf "│ %-38s │ %-20s │\n" "Security Score" "$SECURITY_SCORE/100"
+    printf "│ %-38s │ %-20s │\n" "Threat Level" "$THREAT_LEVEL"
+    printf "│ %-38s │ %-20s │\n" "Rootkit Risk" "$ROOTKIT_RISK"
+    printf "│ %-38s │ %-20s │\n" "Supply Chain Risk" "$SUPPLY_CHAIN_RISK"
+    printf "│ %-38s │ %-20s │\n" "Deployed Controls" "${#DEPLOYED_CONTROLS[@]}"
+    printf "│ %-38s │ %-20s │\n" "Detection Rules" "${#DETECTION_RULES[@]}"
+    printf "│ %-38s │ %-20s │\n" "Incidents Detected" "$INCIDENTS_DETECTED"
+    printf "│ %-38s │ %-20s │\n" "Incidents Contained" "$INCIDENTS_CONTAINED"
+    echo "└────────────────────────────────────────┴──────────────────────┘"
     
     echo
-    if [ $STEALTH_SCORE -gt 75 ]; then
-        gum style --foreground 46 "🕵️  OPERATIONAL SECURITY: Excellent (Winnti stealth)"
-    elif [ $STEALTH_SCORE -gt 50 ]; then
-        gum style --foreground 11 "⚠️  OPERATIONAL SECURITY: Moderate detection risk"
+    gum format -- "## Deployed Security Controls"
+    
+    if [ ${#DEPLOYED_CONTROLS[@]} -gt 0 ]; then
+        for control in "${DEPLOYED_CONTROLS[@]}"; do
+            gum style --foreground 46 "  ✅ $control"
+        done
     else
-        gum style --foreground 196 "❌ OPERATIONAL SECURITY: High attribution probability"
+        gum style --foreground 196 "  ❌ No controls deployed"
+    fi
+    
+    echo
+    gum format -- "## Detection Coverage (APT41 TTPs)"
+    
+    if [ ${#DETECTION_RULES[@]} -gt 0 ]; then
+        for technique in "${!DETECTION_RULES[@]}"; do
+            echo "  🔍 $technique: ${DETECTION_RULES[$technique]}"
+        done
+    fi
+    
+    echo
+    gum format -- "## Threat Detections"
+    
+    if [ ${#DETECTED_THREATS[@]} -gt 0 ]; then
+        for threat in "${DETECTED_THREATS[@]}"; do
+            IFS='|' read -r host finding threat_type <<< "$threat"
+            gum style --foreground 196 "  🚨 $host: $finding ($threat_type)"
+        done
+    else
+        gum style --foreground 46 "  ✅ No threats detected - Clean environment"
+    fi
+    
+    echo
+    gum format -- "## Key Recommendations"
+    
+    if [ $SECURITY_SCORE -lt 70 ]; then
+        gum style --foreground 196 "### Critical Actions Required"
+        echo "  1. URGENT: Deploy rootkit detection tools (kernel monitoring)"
+        echo "  2. Enforce driver signature verification"
+        echo "  3. Implement code signing certificate validation"
+        echo "  4. Harden software supply chain (SBOM, update integrity)"
+        echo "  5. Deploy advanced EDR with behavioral analysis"
+    elif [ $SECURITY_SCORE -lt 85 ]; then
+        gum style --foreground 11 "### Recommended Enhancements"
+        echo "  1. Enhance kernel-mode telemetry collection"
+        echo "  2. Deploy deception technology (honeypots)"
+        echo "  3. Implement application whitelisting"
+        echo "  4. Conduct quarterly purple team exercises"
+    else
+        gum style --foreground 46 "### Maintain and Enhance"
+        echo "  1. Continue proactive threat hunting for APT41 IoCs"
+        echo "  2. Maintain driver signature enforcement"
+        echo "  3. Regular supply chain security audits"
+        echo "  4. Quarterly APT41-focused red team assessments"
     fi
     
     echo
     gum style --foreground 240 "Detailed log: $LOG_FILE"
     
     echo
-    if gum confirm "Save mission report for APT41 group?"; then
-        REPORT_FILE="/tmp/apt41-report-$(date +%Y%m%d-%H%M%S).txt"
+    if gum confirm "Generate formal assessment report?"; then
+        REPORT_FILE="/tmp/apt41-defense-report-$(date +%Y%m%d-%H%M%S).txt"
         {
             echo "============================================"
-            echo "APT41 (DOUBLE DRAGON) MISSION REPORT"
-            echo "MSS Cyber Operations - Dual Purpose"
+            echo "APT41 (WINNTI / DOUBLE DRAGON) DEFENSE ASSESSMENT"
+            echo "Rootkit & Supply Chain Security Evaluation"
             echo "Generated: $(date)"
             echo "============================================"
             echo
-            echo "OPERATIONAL MODE: $OPERATIONAL_MODE"
-            echo "DURATION: ${duration_min} minutes"
-            echo "STEALTH SCORE: $STEALTH_SCORE/100"
-            echo "IP STOLEN: ${INTELLECTUAL_PROPERTY_SIZE}MB"
-            echo "FINANCIAL GAIN: \$$FINANCIAL_GAIN thousand"
+            echo "EXECUTIVE SUMMARY:"
+            echo "  Organization: $ORGANIZATION"
+            echo "  Security Grade: $grade"
+            echo "  Security Score: $SECURITY_SCORE/100"
+            echo "  Rootkit Risk: $ROOTKIT_RISK"
+            echo "  Supply Chain Risk: $SUPPLY_CHAIN_RISK"
+            echo "  Threat Level: $THREAT_LEVEL"
             echo
-            echo "COMPROMISED HOSTS:"
-            for host in "${COMPROMISED_HOSTS[@]}"; do
-                echo "  - $host"
+            echo "DEPLOYED CONTROLS: ${#DEPLOYED_CONTROLS[@]}"
+            for control in "${DEPLOYED_CONTROLS[@]}"; do
+                echo "  - $control"
             done
             echo
-            echo "CREDENTIALS:"
-            for cred in "${HARVESTED_CREDS[@]}"; do
-                echo "  - $cred"
+            echo "DETECTION CAPABILITIES: ${#DETECTION_RULES[@]} rules"
+            for technique in "${!DETECTION_RULES[@]}"; do
+                echo "  - $technique: ${DETECTION_RULES[$technique]}"
             done
             echo
-            echo "STOLEN DATA:"
-            for item in "${STOLEN_DATA[@]}"; do
-                echo "  - $item"
-            done
+            echo "INCIDENT RESPONSE:"
+            echo "  Incidents Detected: $INCIDENTS_DETECTED"
+            echo "  Incidents Contained: $INCIDENTS_CONTAINED"
+            echo
+            echo "RISK ASSESSMENT:"
+            if [ $SECURITY_SCORE -lt 70 ]; then
+                echo "  Level: HIGH"
+                echo "  Organization vulnerable to APT41 rootkit and supply chain attacks."
+                echo "  Immediate action required on kernel monitoring and code signing validation."
+            elif [ $SECURITY_SCORE -lt 85 ]; then
+                echo "  Level: MODERATE"
+                echo "  Baseline defenses present, enhancement recommended."
+            else
+                echo "  Level: LOW"
+                echo "  Strong defense against APT41/Winnti TTPs."
+                echo "  Maintain vigilance and continuous improvement."
+            fi
         } > "$REPORT_FILE"
         
         gum style --foreground 46 "✅ Report saved: $REPORT_FILE"
@@ -1354,25 +1242,30 @@ main() {
     check_dependencies
     
     mission_briefing
-    phase_reconnaissance
-    phase_resource_development
-    phase_initial_access
-    phase_execution
-    phase_persistence
-    phase_privilege_escalation
-    phase_defense_evasion
-    phase_credential_access
-    phase_discovery
-    phase_lateral_movement
-    phase_collection
-    phase_command_control
-    phase_exfiltration
-    phase_impact
+    phase_rootkit_detection
+    phase_code_signing
+    phase_supply_chain
+    phase_endpoint_detection
+    phase_network_monitoring
+    phase_industry_specific
+    phase_threat_hunting
+    
+    # Conditional incident response
+    if [ $INCIDENTS_DETECTED -gt 0 ]; then
+        phase_incident_response
+        phase_post_incident
+    fi
+    
+    phase_red_team_validation
     
     generate_report
     
     echo
-    gum style --foreground 208 --bold "🇨🇳 Mission complete. 任务完成 (Rènwù wánchéng)"
+    if [ $SECURITY_SCORE -ge 85 ]; then
+        gum style --foreground 46 --bold "🛡️  Defense mission successful. Organization secured against APT41/Winnti."
+    else
+        gum style --foreground 11 --bold "⚠️  Defense gaps identified. Continue hardening operations against rootkits."
+    fi
 }
 
 # Run main
