@@ -100,7 +100,6 @@ apt-simulator.sh                    # 🎮 TUI Launcher (dialog)
 
 | APT Group | Attribution | Notable Operations |
 |-----------|-------------|-------------------|
-| APT29 (Cozy Bear) | 🇷🇺 SVR | SolarWinds, Nobelium |
 | Lazarus Group | 🇰🇵 North Korea | WannaCry, Sony Hack |
 | APT41 (Winnti) | 🇨🇳 China | Double Dragon |
 | Sandworm | 🇷🇺 GRU | NotPetya, Ukraine Grid |
