@@ -93,15 +93,13 @@ apt-simulator.sh                    # 🎮 TUI Launcher (dialog)
 |-----------|----------------|------------------|--------|
 | **APT28** (Fancy Bear) | `apt28-killchain.sh` | `blueteam-apt28-defense.sh` | **LIVE** |
 | **APT29** (Cozy Bear) | `apt29-killchain.sh` | `blueteam-apt29-defense.sh` | **LIVE** |
+| **Lazarus Group** | `lazarus-killchain.sh` | `blueteam-lazarus-defense.sh` | **LIVE** |
 
-**APT28 Red Team**: 14 phases (Recon → Exfiltration → Impact)  
-**APT28 Blue Team**: 10 phases (Inventory → Hunt → Validation)
 
 ### ⏳ **Planned Implementations**
 
 | APT Group | Attribution | Notable Operations |
 |-----------|-------------|-------------------|
-| Lazarus Group | 🇰🇵 North Korea | WannaCry, Sony Hack |
 | APT41 (Winnti) | 🇨🇳 China | Double Dragon |
 | Sandworm | 🇷🇺 GRU | NotPetya, Ukraine Grid |
 | APT32 (Ocean Lotus) | 🇻🇳 Vietnam | Southeast Asia |
