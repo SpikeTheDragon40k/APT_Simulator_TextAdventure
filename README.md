@@ -92,6 +92,7 @@ apt-simulator.sh                    # 🎮 TUI Launcher (dialog)
 | APT Group | Red Team Script | Blue Team Script | Status |
 |-----------|----------------|------------------|--------|
 | **APT28** (Fancy Bear) | `apt28-killchain.sh` | `blueteam-apt28-defense.sh` | **LIVE** |
+| **APT29** (Cozy Bear) | `apt29-killchain.sh` | `blueteam-apt29-defense.sh` | **LIVE** |
 
 **APT28 Red Team**: 14 phases (Recon → Exfiltration → Impact)  
 **APT28 Blue Team**: 10 phases (Inventory → Hunt → Validation)
