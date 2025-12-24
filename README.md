@@ -69,21 +69,6 @@ chmod +x apt-simulator.sh
 └─────────────────────────────────────────────┘
 ```
 
-## 🗂️ Repository Structure
-
-```
-apt-simulator.sh                    # 🎮 TUI Launcher (dialog)
-├── red-team/                      # 🔴 Attack Simulators (gum)
-│   ├── apt28-killchain.sh         # ✅ APT28 (Fancy Bear) - LIVE
-│   ├── apt29-killchain.sh         # ⏳ Coming Soon
-│   └── lazarus-killchain.sh       # ⏳ Coming Soon
-├── blue-team/                     # 🛡️ Defense Simulators (gum)
-│   ├── blueteam-apt28-defense.sh  # ✅ APT28 Defense - LIVE
-│   ├── blueteam-apt29-defense.sh  # ⏳ Coming Soon
-│   └── blueteam-lazarus-defense.sh# ⏳ Coming Soon
-├── README.md                      # 📖 This file
-└── LICENSE                        # 📄 MIT License
-```
 
 ## 🎓 Training Scenarios
 
@@ -93,14 +78,22 @@ apt-simulator.sh                    # 🎮 TUI Launcher (dialog)
 |-----------|----------------|------------------|--------|
 | **APT28** (Fancy Bear) | `apt28-killchain.sh` | `blueteam-apt28-defense.sh` | **LIVE** |
 | **APT29** (Cozy Bear) | `apt29-killchain.sh` | `blueteam-apt29-defense.sh` | **LIVE** |
+<<<<<<< HEAD
+| **Lazarus Group**  | `lazarus-killchain.sh` | `blueteam-lazarus-defense.sh` | **LIVE** ||
+| **APT41** (Winnti)  | `apt41-killchain.sh` | `blueteam-apt41-defense.sh` | **LIVE** |
+=======
 | **Lazarus Group** | `lazarus-killchain.sh` | `blueteam-lazarus-defense.sh` | **LIVE** |
+>>>>>>> 8fd45549a3bd26b0bc9409e775de1b9eca0a44a9
 
 
 ### ⏳ **Planned Implementations**
 
 | APT Group | Attribution | Notable Operations |
 |-----------|-------------|-------------------|
+<<<<<<< HEAD
+=======
 | APT41 (Winnti) | 🇨🇳 China | Double Dragon |
+>>>>>>> 8fd45549a3bd26b0bc9409e775de1b9eca0a44a9
 | Sandworm | 🇷🇺 GRU | NotPetya, Ukraine Grid |
 | APT32 (Ocean Lotus) | 🇻🇳 Vietnam | Southeast Asia |
 | Equation Group | 🇺🇸 NSA | FoxAcid Exploits |
@@ -142,23 +135,6 @@ Score: 92/100 | Threat Level: LOW
 Controls: 28 deployed | Detection Rate: 89%
 ```
 
-## 🛠️ Adding New APT Groups
-
-**Super easy!** The TUI menu auto-detects scripts:
-
-```bash
-# 1. Create new scripts (copy existing templates)
-cp red-team/apt28-killchain.sh red-team/apt41-killchain.sh
-cp blue-team/blueteam-apt28-defense.sh blue-team/blueteam-apt41-defense.sh
-
-# 2. Customize for APT41 TTPs
-nano red-team/apt41-killchain.sh
-
-# 3. Restart launcher - APT41 auto-appears in menu!
-./apt-simulator.sh
-```
-
-**No code changes needed!** Menu reads folder contents automatically.
 
 ## 🎯 MITRE ATT&CK Coverage (APT28)
 
