@@ -78,22 +78,17 @@ chmod +x apt-simulator.sh
 |-----------|----------------|------------------|--------|
 | **APT28** (Fancy Bear) | `apt28-killchain.sh` | `blueteam-apt28-defense.sh` | **LIVE** |
 | **APT29** (Cozy Bear) | `apt29-killchain.sh` | `blueteam-apt29-defense.sh` | **LIVE** |
-<<<<<<< HEAD
 | **Lazarus Group**  | `lazarus-killchain.sh` | `blueteam-lazarus-defense.sh` | **LIVE** ||
 | **APT41** (Winnti)  | `apt41-killchain.sh` | `blueteam-apt41-defense.sh` | **LIVE** |
-=======
 | **Lazarus Group** | `lazarus-killchain.sh` | `blueteam-lazarus-defense.sh` | **LIVE** |
->>>>>>> 8fd45549a3bd26b0bc9409e775de1b9eca0a44a9
+
 
 
 ### ⏳ **Planned Implementations**
 
 | APT Group | Attribution | Notable Operations |
 |-----------|-------------|-------------------|
-<<<<<<< HEAD
-=======
 | APT41 (Winnti) | 🇨🇳 China | Double Dragon |
->>>>>>> 8fd45549a3bd26b0bc9409e775de1b9eca0a44a9
 | Sandworm | 🇷🇺 GRU | NotPetya, Ukraine Grid |
 | APT32 (Ocean Lotus) | 🇻🇳 Vietnam | Southeast Asia |
 | Equation Group | 🇺🇸 NSA | FoxAcid Exploits |
